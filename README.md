@@ -25,7 +25,7 @@ A Streamlit web application for generating optimized music prompts for [Suno AI]
 
 ```bash
 # Clone the repository
-git clone https://github.com/stefanopiovesan/suno-prompt-generator.git
+git clone https://github.com/spiovesan/suno-prompt-generator.git
 cd suno-prompt-generator
 
 # Create virtual environment
