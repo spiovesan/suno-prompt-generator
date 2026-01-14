@@ -54,6 +54,8 @@ def analyze_prompt(prompt: str) -> dict:
         "production": ["mix", "reverb", "analog", "vintage", "modern", "polished"],
         "arrangement": ["intro", "build", "dynamic", "sparse", "full", "solo"],
         "genre": ["jazz", "fusion", "smooth", "modal", "bebop", "funk", "soul"],
+        "harmony": ["ii-v-i", "tritone", "vamp", "pedal", "quartal", "chromatic",
+                    "chord", "voicing", "extension", "altered", "progression", "changes"],
     }
 
     for category, keywords in category_keywords.items():
@@ -134,14 +136,14 @@ def validate_prompt(prompt: str) -> dict:
 
     # Score based on category coverage
     detected = len(analysis["categories_detected"])
-    if detected >= 5:
-        strengths.append(f"Excellent category coverage ({detected}/6)")
-    elif detected >= 3:
-        strengths.append(f"Good category coverage ({detected}/6)")
+    if detected >= 6:
+        strengths.append(f"Excellent category coverage ({detected}/7)")
+    elif detected >= 4:
+        strengths.append(f"Good category coverage ({detected}/7)")
         suggestions.append(f"Consider adding: {', '.join(analysis['missing_categories'][:2])}")
     else:
         score -= 1
-        weaknesses.append(f"Limited category coverage ({detected}/6)")
+        weaknesses.append(f"Limited category coverage ({detected}/7)")
         suggestions.append(f"Add elements for: {', '.join(analysis['missing_categories'])}")
 
     # Ensure score is in valid range
@@ -179,7 +181,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "check_suno_guidelines",
-            "description": "Get Suno AI best practices for a specific aspect. Available aspects: general, tempo, mood, arrangement, instruments, production, genre_jazz, anti_patterns, effective_keywords",
+            "description": "Get Suno AI best practices for a specific aspect. Available aspects: general, tempo, mood, arrangement, instruments, production, genre_jazz, harmony, chord_voicings, anti_patterns, effective_keywords",
             "parameters": {
                 "type": "object",
                 "properties": {

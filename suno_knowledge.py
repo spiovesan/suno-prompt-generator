@@ -62,9 +62,32 @@ SUNO_GUIDELINES = {
         "Sub-genres: smooth jazz, modal jazz, fusion, bebop, cool jazz, acid jazz",
         "Era references: '70s fusion', '80s smooth jazz', 'classic Blue Note era'",
         "Artist-adjacent (careful): 'Pat Metheny-esque', 'in the style of Weather Report'",
-        "Jazz-specific: 'complex chord progressions', 'modal harmonies', 'jazz voicings'",
+        "Harmonic specifics: 'ii-V-I changes', 'modal vamp', 'tritone substitutions'",
+        "Jazz voicings: 'rootless voicings', 'Bill Evans style voicings', 'quartal stacks'",
         "Improvisation hints: 'expressive solo', 'melodic improvisation'",
         "Rhythm section: 'swinging rhythm section', 'tight jazz trio'",
+    ],
+
+    "harmony": [
+        "Chord progression types: 'ii-V-I progressions', 'tritone substitutions', 'Coltrane changes'",
+        "Modal approaches: 'modal vamp', 'one-chord ostinato', 'two-chord groove'",
+        "Harmonic rhythm: 'slow chord changes', 'fast harmonic rhythm', 'static harmony'",
+        "Chord extensions: '9th chords', 'altered dominants', 'sus4 voicings', 'add9 colors'",
+        "Voice leading: 'smooth voice leading', 'chromatic movement', 'parallel motion'",
+        "Bass motion: 'pedal bass', 'walking bass changes', 'root motion in fifths'",
+        "Avoid just saying 'complex chords' - Suno defaults to common progressions",
+        "Combine progression type with rhythm: 'slow ii-V-I changes', 'fast Coltrane cycles'",
+        "Quartal and quartal/quintal voicings create modern jazz sounds",
+        "Tritone subs and altered dominants give bebop/post-bop flavor",
+    ],
+
+    "chord_voicings": [
+        "Extended chords: 'maj9', 'min11', '13th chords' work well",
+        "Altered dominants: 'sharp 9', 'flat 13', 'alt chord' understood by Suno",
+        "Sus chords: 'sus2', 'sus4' create open, ambiguous harmony",
+        "Slash chords for inversions: 'C/E bass', 'inverted voicings'",
+        "Polychords for modern jazz: 'stacked voicings', 'polytonal colors'",
+        "Keep voicing descriptions consistent with style era",
     ],
 
     "anti_patterns": [
@@ -89,7 +112,10 @@ SUNO_GUIDELINES = {
         "flowing", "rhythmic", "melodic", "harmonic", "textured",
         # Jazz-specific
         "modal", "fusion", "smooth", "swinging", "walking bass", "jazz voicings",
-        "improvised", "expressive", "sophisticated", "complex harmonies",
+        "improvised", "expressive", "sophisticated",
+        # Harmony
+        "ii-V-I", "tritone", "altered", "extended", "sus", "quartal",
+        "vamp", "pedal", "chromatic", "voice leading", "ninth", "thirteenth",
     ],
 }
 

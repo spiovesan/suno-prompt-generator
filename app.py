@@ -5,32 +5,34 @@ import csv
 import io
 from prompt_engine import build_prompt
 from data import (
-    TONALITY_MODES, MODE_FAMILIES, GUITAR_VARIATIONS, GROOVE_VARIATIONS,
-    TEMPO_VARIATIONS, MOOD_VARIATIONS, ERA_VARIATIONS, INTRO_VARIATIONS
+    STYLE_PRESETS, KEY_SIGNATURES, STYLE_INFLUENCES,
+    TEMPO_VARIATIONS, MOOD_VARIATIONS, INTRO_VARIATIONS,
+    PROGRESSION_TYPES, HARMONIC_RHYTHM, CHORD_EXTENSIONS
 )
 from storage import load_history, save_song, delete_song
 from refiner import run_refinement_agent
+from llm_generator import generate_prompt
 
 st.set_page_config(page_title="Suno Prompt Generator", layout="wide")
 
-# Parameter groups for lock mode
+# Parameter groups for lock mode (simplified)
 PARAM_GROUPS = {
-    "Sound": ["tonality", "mood"],
-    "Style": ["mode_family", "era"],
-    "Rhythm": ["groove", "tempo"],
-    "Instrument": ["guitar"],
-    "Arrangement": ["intro"]
+    "Core": ["style_preset", "key_signature", "style_influence"],
+    "Feel": ["tempo", "mood"],
+    "Arrangement": ["intro"],
+    "Harmony": ["progression", "harmonic_rhythm", "extensions"]
 }
 
 ALL_PARAMS = {
-    "tonality": TONALITY_MODES,
-    "mode_family": MODE_FAMILIES,
-    "guitar": GUITAR_VARIATIONS,
-    "groove": GROOVE_VARIATIONS,
+    "style_preset": {k: k for k in STYLE_PRESETS.keys()},
+    "key_signature": KEY_SIGNATURES,
+    "style_influence": STYLE_INFLUENCES,
     "tempo": TEMPO_VARIATIONS,
     "mood": MOOD_VARIATIONS,
-    "era": ERA_VARIATIONS,
-    "intro": INTRO_VARIATIONS
+    "intro": INTRO_VARIATIONS,
+    "progression": PROGRESSION_TYPES,
+    "harmonic_rhythm": HARMONIC_RHYTHM,
+    "extensions": CHORD_EXTENSIONS
 }
 
 # Sidebar - Song History & Tools
@@ -43,15 +45,16 @@ with st.sidebar:
         if st.button("Export to CSV"):
             output = io.StringIO()
             writer = csv.writer(output)
-            writer.writerow(["Title", "Timestamp", "Tonality", "Mode Family", "Guitar",
-                           "Groove", "Tempo", "Mood", "Era", "Intro", "Prompt"])
+            writer.writerow(["Title", "Timestamp", "Style Preset", "Key", "Style Influence",
+                           "Tempo", "Mood", "Intro", "Progression", "Harmonic Rhythm", "Extensions", "Prompt"])
             for song in history:
                 s = song["settings"]
                 writer.writerow([
                     song["title"], song["timestamp"],
-                    s.get("tonality", ""), s.get("mode_family", ""), s.get("guitar", ""),
-                    s.get("groove", ""), s.get("tempo", ""), s.get("mood", ""), s.get("era", ""),
-                    s.get("intro", ""), song["prompt"]
+                    s.get("style_preset", ""), s.get("key_signature", ""), s.get("style_influence", ""),
+                    s.get("tempo", ""), s.get("mood", ""), s.get("intro", ""),
+                    s.get("progression", ""), s.get("harmonic_rhythm", ""), s.get("extensions", ""),
+                    song["prompt"]
                 ])
             st.download_button(
                 "Download CSV",
@@ -84,54 +87,124 @@ st.title("Suno Prompt Generator")
 # Get loaded settings if any
 loaded = st.session_state.get("loaded_settings", {})
 
-# Parameter selection
-col1, col2 = st.columns(2)
+# Core Style Selection
+st.subheader("Core Style")
+core_col1, core_col2, core_col3 = st.columns(3)
 
-with col1:
-    tonality_keys = list(TONALITY_MODES.keys())
-    tonality_idx = tonality_keys.index(loaded.get("tonality", "None")) if loaded.get("tonality") in tonality_keys else 0
-    tonality = st.selectbox("Tonality", tonality_keys, index=tonality_idx)
+with core_col1:
+    style_preset_keys = list(STYLE_PRESETS.keys())
+    style_preset_idx = style_preset_keys.index(loaded.get("style_preset", "Smooth Jazz")) if loaded.get("style_preset") in style_preset_keys else 0
+    style_preset = st.selectbox("Style Preset", style_preset_keys, index=style_preset_idx,
+                                help="Foundation style - dramatically changes the entire sound")
 
-    mode_keys = list(MODE_FAMILIES.keys())
-    mode_idx = mode_keys.index(loaded.get("mode_family", "None")) if loaded.get("mode_family") in mode_keys else 0
-    mode_family = st.selectbox("Mode Family", mode_keys, index=mode_idx)
+with core_col2:
+    key_keys = list(KEY_SIGNATURES.keys())
+    key_idx = key_keys.index(loaded.get("key_signature", "None")) if loaded.get("key_signature") in key_keys else 0
+    key_signature = st.selectbox("Key Signature", key_keys, index=key_idx,
+                                 help="Explicit key for harmonic direction")
 
-    guitar_keys = list(GUITAR_VARIATIONS.keys())
-    guitar_idx = guitar_keys.index(loaded.get("guitar", "None")) if loaded.get("guitar") in guitar_keys else 0
-    guitar = st.selectbox("Guitar Style", guitar_keys, index=guitar_idx)
+with core_col3:
+    influence_keys = list(STYLE_INFLUENCES.keys())
+    influence_idx = influence_keys.index(loaded.get("style_influence", "None")) if loaded.get("style_influence") in influence_keys else 0
+    style_influence = st.selectbox("Style Influence", influence_keys, index=influence_idx,
+                                   help="Era and style-inspired sound characteristics")
 
-    groove_keys = list(GROOVE_VARIATIONS.keys())
-    groove_idx = groove_keys.index(loaded.get("groove", "None")) if loaded.get("groove") in groove_keys else 0
-    groove = st.selectbox("Groove", groove_keys, index=groove_idx)
+st.divider()
 
-with col2:
+# Feel parameters
+st.subheader("Feel")
+feel_col1, feel_col2, feel_col3 = st.columns(3)
+
+with feel_col1:
     tempo_keys = list(TEMPO_VARIATIONS.keys())
     tempo_idx = tempo_keys.index(loaded.get("tempo", "None")) if loaded.get("tempo") in tempo_keys else 0
     tempo = st.selectbox("Tempo", tempo_keys, index=tempo_idx)
 
+with feel_col2:
     mood_keys = list(MOOD_VARIATIONS.keys())
     mood_idx = mood_keys.index(loaded.get("mood", "None")) if loaded.get("mood") in mood_keys else 0
     mood = st.selectbox("Mood", mood_keys, index=mood_idx)
 
-    era_keys = list(ERA_VARIATIONS.keys())
-    era_idx = era_keys.index(loaded.get("era", "None")) if loaded.get("era") in era_keys else 0
-    era = st.selectbox("Era/Style", era_keys, index=era_idx)
-
+with feel_col3:
     intro_keys = list(INTRO_VARIATIONS.keys())
     intro_idx = intro_keys.index(loaded.get("intro", "None")) if loaded.get("intro") in intro_keys else 0
     intro = st.selectbox("Intro Style", intro_keys, index=intro_idx)
 
+# Harmony parameters - avoid boring IVm7-Im7 progressions
+st.divider()
+st.subheader("Harmony")
+harm_col1, harm_col2, harm_col3 = st.columns(3)
+
+with harm_col1:
+    prog_keys = list(PROGRESSION_TYPES.keys())
+    prog_idx = prog_keys.index(loaded.get("progression", "None")) if loaded.get("progression") in prog_keys else 0
+    progression = st.selectbox("Chord Progression", prog_keys, index=prog_idx,
+                               help="Specific progression type - avoids boring IVm7-Im7")
+
+with harm_col2:
+    rhythm_keys = list(HARMONIC_RHYTHM.keys())
+    rhythm_idx = rhythm_keys.index(loaded.get("harmonic_rhythm", "None")) if loaded.get("harmonic_rhythm") in rhythm_keys else 0
+    harmonic_rhythm = st.selectbox("Harmonic Rhythm", rhythm_keys, index=rhythm_idx,
+                                   help="How often chords change")
+
+with harm_col3:
+    ext_keys = list(CHORD_EXTENSIONS.keys())
+    ext_idx = ext_keys.index(loaded.get("extensions", "None")) if loaded.get("extensions") in ext_keys else 0
+    extensions = st.selectbox("Chord Extensions", ext_keys, index=ext_idx,
+                              help="Chord complexity level")
+
+# API Key and Generation Mode
+st.divider()
+st.subheader("Generation Settings")
+
+# API Key handling - check env var first, then session state
+env_api_key = os.environ.get("OPENAI_API_KEY", "")
+if "openai_api_key" not in st.session_state:
+    st.session_state["openai_api_key"] = env_api_key
+
+gen_col1, gen_col2 = st.columns([2, 1])
+with gen_col1:
+    api_key_input = st.text_input(
+        "OpenAI API Key",
+        value=st.session_state["openai_api_key"],
+        type="password",
+        help="Required for LLM generation mode. Set OPENAI_API_KEY env var to pre-fill."
+    )
+    st.session_state["openai_api_key"] = api_key_input
+
+with gen_col2:
+    gen_mode = st.radio(
+        "Generation Mode",
+        ["Static (Fast)", "LLM (Coherent)"],
+        horizontal=True,
+        help="Static: Fast concatenation. LLM: AI-generated coherent prompts."
+    )
+    use_llm = gen_mode == "LLM (Coherent)"
+
 # Current selections dict
 current_selections = {
-    "tonality": tonality,
-    "mode_family": mode_family,
-    "guitar": guitar,
-    "groove": groove,
+    "style_preset": style_preset,
+    "key_signature": key_signature,
+    "style_influence": style_influence,
     "tempo": tempo,
     "mood": mood,
-    "era": era,
-    "intro": intro
+    "intro": intro,
+    "progression": progression,
+    "harmonic_rhythm": harmonic_rhythm,
+    "extensions": extensions
 }
+
+# Clear refined prompt if selections changed (so refiner uses current prompt)
+if "last_selections" in st.session_state:
+    if st.session_state["last_selections"] != current_selections:
+        # Selections changed - clear old refined prompt
+        if "refined_prompt" in st.session_state:
+            del st.session_state["refined_prompt"]
+        if "refine_score" in st.session_state:
+            del st.session_state["refine_score"]
+        if "refine_reasoning" in st.session_state:
+            del st.session_state["refine_reasoning"]
+st.session_state["last_selections"] = current_selections.copy()
 
 # Auto-generate song title from selections (max 80 chars)
 def build_auto_title(selections, max_len=80):
@@ -141,7 +214,6 @@ def build_auto_title(selections, max_len=80):
     title = " | ".join(parts)
     if len(title) <= max_len:
         return title
-    # Truncate and add ellipsis
     return title[:max_len - 3] + "..."
 
 auto_title = build_auto_title(current_selections)
@@ -163,18 +235,65 @@ if "loaded_title" in st.session_state:
 
 # Generate prompt
 st.divider()
-prompt = build_prompt(
-    TONALITY_MODES[tonality],
-    MODE_FAMILIES[mode_family],
-    GUITAR_VARIATIONS[guitar],
-    GROOVE_VARIATIONS[groove],
-    TEMPO_VARIATIONS[tempo],
-    MOOD_VARIATIONS[mood],
-    ERA_VARIATIONS[era],
-    INTRO_VARIATIONS[intro]
-)
 
-st.subheader("Generated Prompt")
+# Track if we used LLM and if it was cached
+llm_used = False
+llm_cached = False
+
+if use_llm:
+    if st.session_state.get("openai_api_key"):
+        with st.spinner("Generating coherent prompt..."):
+            try:
+                result = generate_prompt(current_selections, st.session_state["openai_api_key"])
+                prompt = result["prompt"]
+                llm_used = True
+                llm_cached = result["cached"]
+            except Exception as e:
+                st.error(f"LLM generation failed: {e}. Falling back to static.")
+                prompt = build_prompt(
+                    style_preset=style_preset,
+                    key_signature=KEY_SIGNATURES[key_signature],
+                    style_influence=STYLE_INFLUENCES[style_influence],
+                    tempo=TEMPO_VARIATIONS[tempo],
+                    mood=MOOD_VARIATIONS[mood],
+                    intro=INTRO_VARIATIONS[intro],
+                    progression=PROGRESSION_TYPES[progression],
+                    harmonic_rhythm=HARMONIC_RHYTHM[harmonic_rhythm],
+                    extensions=CHORD_EXTENSIONS[extensions]
+                )
+    else:
+        st.warning("Enter OpenAI API key above for LLM generation")
+        prompt = build_prompt(
+            style_preset=style_preset,
+            key_signature=KEY_SIGNATURES[key_signature],
+            style_influence=STYLE_INFLUENCES[style_influence],
+            tempo=TEMPO_VARIATIONS[tempo],
+            mood=MOOD_VARIATIONS[mood],
+            intro=INTRO_VARIATIONS[intro],
+            progression=PROGRESSION_TYPES[progression],
+            harmonic_rhythm=HARMONIC_RHYTHM[harmonic_rhythm],
+            extensions=CHORD_EXTENSIONS[extensions]
+        )
+else:
+    prompt = build_prompt(
+        style_preset=style_preset,
+        key_signature=KEY_SIGNATURES[key_signature],
+        style_influence=STYLE_INFLUENCES[style_influence],
+        tempo=TEMPO_VARIATIONS[tempo],
+        mood=MOOD_VARIATIONS[mood],
+        intro=INTRO_VARIATIONS[intro],
+        progression=PROGRESSION_TYPES[progression],
+        harmonic_rhythm=HARMONIC_RHYTHM[harmonic_rhythm],
+        extensions=CHORD_EXTENSIONS[extensions]
+    )
+
+# Show header with generation info
+header_text = "Generated Prompt"
+if llm_used:
+    header_text += " (LLM)"
+    if llm_cached:
+        header_text += " - Cached"
+st.subheader(header_text)
 st.text_area("", prompt, height=150, label_visibility="collapsed")
 
 # Save button
@@ -189,22 +308,11 @@ with col1:
 st.divider()
 st.subheader("AI Prompt Refiner Agent")
 
-# API Key handling - check env var first, then session state
-env_api_key = os.environ.get("OPENAI_API_KEY", "")
-if "openai_api_key" not in st.session_state:
-    st.session_state["openai_api_key"] = env_api_key
-
-api_key_input = st.text_input(
-    "OpenAI API Key",
-    value=st.session_state["openai_api_key"],
-    type="password",
-    help="Your API key is stored in session only (not saved to disk). You can also set OPENAI_API_KEY environment variable."
-)
-st.session_state["openai_api_key"] = api_key_input
-
 refine_col1, refine_col2 = st.columns([1, 4])
 with refine_col1:
     refine_button = st.button("Refine with Agent")
+with refine_col2:
+    st.caption(f"Will refine: {prompt[:60]}..." if len(prompt) > 60 else f"Will refine: {prompt}")
 
 if refine_button:
     if not st.session_state["openai_api_key"]:
@@ -294,24 +402,29 @@ if st.button("Generate Batch"):
             if param in locked_params:
                 batch_selections[param] = current_selections[param]
             else:
-                # Random selection (skip "None" for variety, 20% chance of None)
-                keys = list(options.keys())
-                if random.random() < 0.2:
-                    batch_selections[param] = "None"
+                # Style preset always gets a value (no None option)
+                if param == "style_preset":
+                    batch_selections[param] = random.choice(list(options.keys()))
                 else:
-                    non_none = [k for k in keys if k != "None"]
-                    batch_selections[param] = random.choice(non_none) if non_none else "None"
+                    # Random selection (skip "None" for variety, 20% chance of None)
+                    keys = list(options.keys())
+                    if random.random() < 0.2:
+                        batch_selections[param] = "None"
+                    else:
+                        non_none = [k for k in keys if k != "None"]
+                        batch_selections[param] = random.choice(non_none) if non_none else "None"
 
         # Build prompt for this variation
         batch_prompt = build_prompt(
-            TONALITY_MODES[batch_selections["tonality"]],
-            MODE_FAMILIES[batch_selections["mode_family"]],
-            GUITAR_VARIATIONS[batch_selections["guitar"]],
-            GROOVE_VARIATIONS[batch_selections["groove"]],
-            TEMPO_VARIATIONS[batch_selections["tempo"]],
-            MOOD_VARIATIONS[batch_selections["mood"]],
-            ERA_VARIATIONS[batch_selections["era"]],
-            INTRO_VARIATIONS[batch_selections["intro"]]
+            style_preset=batch_selections["style_preset"],
+            key_signature=KEY_SIGNATURES.get(batch_selections["key_signature"], ""),
+            style_influence=STYLE_INFLUENCES.get(batch_selections["style_influence"], ""),
+            tempo=TEMPO_VARIATIONS[batch_selections["tempo"]],
+            mood=MOOD_VARIATIONS[batch_selections["mood"]],
+            intro=INTRO_VARIATIONS[batch_selections["intro"]],
+            progression=PROGRESSION_TYPES.get(batch_selections["progression"], ""),
+            harmonic_rhythm=HARMONIC_RHYTHM.get(batch_selections["harmonic_rhythm"], ""),
+            extensions=CHORD_EXTENSIONS.get(batch_selections["extensions"], "")
         )
 
         batch_title = build_auto_title(batch_selections)
@@ -339,15 +452,16 @@ if "batch_results" in st.session_state and st.session_state["batch_results"]:
     if st.button("Export Batch to CSV"):
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(["Title", "Tonality", "Mode Family", "Guitar",
-                       "Groove", "Tempo", "Mood", "Era", "Intro", "Prompt"])
+        writer.writerow(["Title", "Style Preset", "Key", "Style Influence",
+                       "Tempo", "Mood", "Intro", "Progression", "Harmonic Rhythm", "Extensions", "Prompt"])
         for result in st.session_state["batch_results"]:
             s = result["selections"]
             writer.writerow([
                 result["title"],
-                s["tonality"], s["mode_family"], s["guitar"],
-                s["groove"], s["tempo"], s["mood"], s["era"],
-                s["intro"], result["prompt"]
+                s.get("style_preset", ""), s.get("key_signature", ""), s.get("style_influence", ""),
+                s.get("tempo", ""), s.get("mood", ""), s.get("intro", ""),
+                s.get("progression", ""), s.get("harmonic_rhythm", ""), s.get("extensions", ""),
+                result["prompt"]
             ])
         st.download_button(
             "Download Batch CSV",
