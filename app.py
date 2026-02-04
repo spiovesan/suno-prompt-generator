@@ -7,7 +7,8 @@ from prompt_engine import build_prompt
 from data import (
     STYLE_PRESETS, KEY_SIGNATURES, STYLE_INFLUENCES,
     TEMPO_VARIATIONS, MOOD_VARIATIONS, INTRO_VARIATIONS,
-    PROGRESSION_TYPES, HARMONIC_RHYTHM, CHORD_EXTENSIONS
+    PROGRESSION_TYPES, HARMONIC_RHYTHM, CHORD_EXTENSIONS,
+    LYRIC_TEMPLATES
 )
 from storage import load_history, save_song, delete_song
 from refiner import run_refinement_agent
@@ -20,7 +21,8 @@ PARAM_GROUPS = {
     "Core": ["style_preset", "key_signature", "style_influence"],
     "Feel": ["tempo", "mood"],
     "Arrangement": ["intro"],
-    "Harmony": ["progression", "harmonic_rhythm", "extensions"]
+    "Harmony": ["progression", "harmonic_rhythm", "extensions"],
+    "Lyrics": ["lyric_template"]
 }
 
 ALL_PARAMS = {
@@ -32,7 +34,8 @@ ALL_PARAMS = {
     "intro": INTRO_VARIATIONS,
     "progression": PROGRESSION_TYPES,
     "harmonic_rhythm": HARMONIC_RHYTHM,
-    "extensions": CHORD_EXTENSIONS
+    "extensions": CHORD_EXTENSIONS,
+    "lyric_template": LYRIC_TEMPLATES
 }
 
 # Sidebar - Song History & Tools
@@ -46,7 +49,8 @@ with st.sidebar:
             output = io.StringIO()
             writer = csv.writer(output)
             writer.writerow(["Title", "Timestamp", "Style Preset", "Key", "Style Influence",
-                           "Tempo", "Mood", "Intro", "Progression", "Harmonic Rhythm", "Extensions", "Prompt"])
+                           "Tempo", "Mood", "Intro", "Progression", "Harmonic Rhythm", "Extensions",
+                           "Lyric Template", "Prompt", "Lyrics"])
             for song in history:
                 s = song["settings"]
                 writer.writerow([
@@ -54,7 +58,9 @@ with st.sidebar:
                     s.get("style_preset", ""), s.get("key_signature", ""), s.get("style_influence", ""),
                     s.get("tempo", ""), s.get("mood", ""), s.get("intro", ""),
                     s.get("progression", ""), s.get("harmonic_rhythm", ""), s.get("extensions", ""),
-                    song["prompt"]
+                    s.get("lyric_template", ""),
+                    song["prompt"],
+                    song.get("lyrics", "")
                 ])
             st.download_button(
                 "Download CSV",
@@ -70,6 +76,8 @@ with st.sidebar:
             with st.expander(song["title"] or f"Untitled ({song['timestamp'][:10]})"):
                 st.caption(song["timestamp"][:16].replace("T", " "))
                 st.text(song["prompt"][:100] + "..." if len(song["prompt"]) > 100 else song["prompt"])
+                if song.get("lyrics"):
+                    st.caption("Has lyrics template")
                 col1, col2 = st.columns(2)
                 if col1.button("Load", key=f"load_{idx}"):
                     st.session_state["loaded_settings"] = song["settings"]
@@ -153,6 +161,23 @@ with harm_col3:
     extensions = st.selectbox("Chord Extensions", ext_keys, index=ext_idx,
                               help="Chord complexity level")
 
+# Lyrics Template Section
+st.divider()
+st.subheader("Lyrics Template")
+st.caption("Optional structured lyrics for Suno's Lyrics field — controls song structure via bracket tags.")
+
+lyric_col1, lyric_col2 = st.columns([1, 2])
+
+with lyric_col1:
+    lyric_keys = list(LYRIC_TEMPLATES.keys())
+    lyric_idx = lyric_keys.index(loaded.get("lyric_template", "None")) if loaded.get("lyric_template") in lyric_keys else 0
+    lyric_template = st.selectbox("Lyric Template", lyric_keys, index=lyric_idx,
+                                  help="Structured fake lyrics that control Suno's song structure. Goes in the Lyrics field, not Style.")
+
+with lyric_col2:
+    if lyric_template != "None":
+        st.info("This template goes into Suno's **Lyrics** field (separate from Style/Description)")
+
 # API Key and Generation Mode
 st.divider()
 st.subheader("Generation Settings")
@@ -181,6 +206,13 @@ with gen_col2:
     )
     use_llm = gen_mode == "LLM (Coherent)"
 
+replace_guitar = st.checkbox(
+    "I will replace the guitar stem",
+    value=loaded.get("replace_guitar", False),
+    help="Backing track mode: enforces guitar as the only melodic voice. "
+         "Use this when you plan to replace Suno's guitar with your own playing."
+)
+
 # Current selections dict
 current_selections = {
     "style_preset": style_preset,
@@ -191,7 +223,9 @@ current_selections = {
     "intro": intro,
     "progression": progression,
     "harmonic_rhythm": harmonic_rhythm,
-    "extensions": extensions
+    "extensions": extensions,
+    "lyric_template": lyric_template,
+    "replace_guitar": replace_guitar
 }
 
 # Clear refined prompt if selections changed (so refiner uses current prompt)
@@ -208,7 +242,7 @@ st.session_state["last_selections"] = current_selections.copy()
 
 # Auto-generate song title from selections (max 80 chars)
 def build_auto_title(selections, max_len=80):
-    parts = [v for k, v in selections.items() if v != "None"]
+    parts = [v for k, v in selections.items() if v != "None" and not isinstance(v, bool)]
     if not parts:
         return "Default Jazz"
     title = " | ".join(parts)
@@ -259,7 +293,8 @@ if use_llm:
                     intro=INTRO_VARIATIONS[intro],
                     progression=PROGRESSION_TYPES[progression],
                     harmonic_rhythm=HARMONIC_RHYTHM[harmonic_rhythm],
-                    extensions=CHORD_EXTENSIONS[extensions]
+                    extensions=CHORD_EXTENSIONS[extensions],
+                    replace_guitar=replace_guitar
                 )
     else:
         st.warning("Enter OpenAI API key above for LLM generation")
@@ -284,8 +319,12 @@ else:
         intro=INTRO_VARIATIONS[intro],
         progression=PROGRESSION_TYPES[progression],
         harmonic_rhythm=HARMONIC_RHYTHM[harmonic_rhythm],
-        extensions=CHORD_EXTENSIONS[extensions]
+        extensions=CHORD_EXTENSIONS[extensions],
+        replace_guitar=replace_guitar
     )
+
+# Resolve lyrics template (always static, never LLM-modified)
+lyrics_text = LYRIC_TEMPLATES.get(lyric_template, "")
 
 # Show header with generation info
 header_text = "Generated Prompt"
@@ -294,13 +333,20 @@ if llm_used:
     if llm_cached:
         header_text += " - Cached"
 st.subheader(header_text)
+
+st.markdown("**Style / Description** (paste into Suno's Style field)")
 st.text_area("", prompt, height=150, label_visibility="collapsed")
+
+if lyrics_text:
+    st.markdown("**Lyrics** (paste into Suno's Lyrics field)")
+    st.text_area("", lyrics_text, height=300, key="lyrics_display", disabled=True,
+                 label_visibility="collapsed")
 
 # Save button
 col1, col2, col3 = st.columns([1, 1, 3])
 with col1:
     if st.button("Save Song", type="primary"):
-        save_song(song_title or "Untitled", current_selections, prompt)
+        save_song(song_title or "Untitled", current_selections, prompt, lyrics=lyrics_text)
         st.success("Song saved!")
         st.rerun()
 
@@ -356,7 +402,8 @@ if "refined_prompt" in st.session_state and st.session_state["refined_prompt"]:
             save_song(
                 (song_title or "Untitled") + " (Refined)",
                 current_selections,
-                st.session_state["refined_prompt"]
+                st.session_state["refined_prompt"],
+                lyrics=lyrics_text
             )
             st.success("Refined prompt saved!")
             st.rerun()
@@ -414,6 +461,9 @@ if st.button("Generate Batch"):
                         non_none = [k for k in keys if k != "None"]
                         batch_selections[param] = random.choice(non_none) if non_none else "None"
 
+        # Carry over the replace_guitar toggle (not randomized)
+        batch_selections["replace_guitar"] = replace_guitar
+
         # Build prompt for this variation
         batch_prompt = build_prompt(
             style_preset=batch_selections["style_preset"],
@@ -424,14 +474,19 @@ if st.button("Generate Batch"):
             intro=INTRO_VARIATIONS[batch_selections["intro"]],
             progression=PROGRESSION_TYPES.get(batch_selections["progression"], ""),
             harmonic_rhythm=HARMONIC_RHYTHM.get(batch_selections["harmonic_rhythm"], ""),
-            extensions=CHORD_EXTENSIONS.get(batch_selections["extensions"], "")
+            extensions=CHORD_EXTENSIONS.get(batch_selections["extensions"], ""),
+            replace_guitar=replace_guitar
         )
+
+        # Resolve lyrics for this batch variation
+        batch_lyrics = LYRIC_TEMPLATES.get(batch_selections.get("lyric_template", "None"), "")
 
         batch_title = build_auto_title(batch_selections)
         batch_results.append({
             "title": batch_title,
             "selections": batch_selections,
-            "prompt": batch_prompt
+            "prompt": batch_prompt,
+            "lyrics": batch_lyrics
         })
 
     st.session_state["batch_results"] = batch_results
@@ -443,8 +498,12 @@ if "batch_results" in st.session_state and st.session_state["batch_results"]:
     for i, result in enumerate(st.session_state["batch_results"]):
         with st.expander(f"{i+1}. {result['title'][:60]}..."):
             st.text_area("Prompt", result["prompt"], height=100, key=f"batch_prompt_{i}")
+            if result.get("lyrics"):
+                st.text_area("Lyrics", result["lyrics"], height=150, key=f"batch_lyrics_{i}",
+                             disabled=True)
             if st.button("Save This Variation", key=f"save_batch_{i}"):
-                save_song(result["title"], result["selections"], result["prompt"])
+                save_song(result["title"], result["selections"], result["prompt"],
+                          lyrics=result.get("lyrics", ""))
                 st.success("Saved!")
                 st.rerun()
 
@@ -453,7 +512,8 @@ if "batch_results" in st.session_state and st.session_state["batch_results"]:
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(["Title", "Style Preset", "Key", "Style Influence",
-                       "Tempo", "Mood", "Intro", "Progression", "Harmonic Rhythm", "Extensions", "Prompt"])
+                       "Tempo", "Mood", "Intro", "Progression", "Harmonic Rhythm", "Extensions",
+                       "Lyric Template", "Prompt", "Lyrics"])
         for result in st.session_state["batch_results"]:
             s = result["selections"]
             writer.writerow([
@@ -461,7 +521,9 @@ if "batch_results" in st.session_state and st.session_state["batch_results"]:
                 s.get("style_preset", ""), s.get("key_signature", ""), s.get("style_influence", ""),
                 s.get("tempo", ""), s.get("mood", ""), s.get("intro", ""),
                 s.get("progression", ""), s.get("harmonic_rhythm", ""), s.get("extensions", ""),
-                result["prompt"]
+                s.get("lyric_template", ""),
+                result["prompt"],
+                result.get("lyrics", "")
             ])
         st.download_button(
             "Download Batch CSV",

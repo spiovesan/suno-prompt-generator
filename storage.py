@@ -11,13 +11,14 @@ def load_history():
         data = json.load(f)
     return data.get("songs", [])
 
-def save_song(title, settings, prompt):
+def save_song(title, settings, prompt, lyrics=""):
     songs = load_history()
     song = {
         "title": title,
         "timestamp": datetime.now().isoformat(),
         "settings": settings,
-        "prompt": prompt
+        "prompt": prompt,
+        "lyrics": lyrics
     }
     songs.append(song)
     with open(HISTORY_FILE, "w") as f:

@@ -72,6 +72,30 @@ STYLE_PRESETS = {
         "guitar creates atmosphere and melody, piano adds open voicings, "
         "quartal harmony, guitar-led instrumental"
     ),
+    "Contemporary Chamber Jazz": (
+        "Instrumental only, no vocals. Contemporary chamber jazz and modern improvised music "
+        "with ECM-like and post-tonal aesthetics. Focus on vertical harmony, intervallic structures "
+        "and harmonic fields instead of functional progressions. Steady tempo without groove repetition, "
+        "no swing or fusion cliches. Clean electric guitar as primary voice, switching briefly to "
+        "restrained lead guitar during the solo, then returning clean. Music is intentionally "
+        "non-soothing, non-background, with persistent harmonic tension and no tonal resolution."
+    ),
+    "Post-Tonal Improvised": (
+        "Instrumental only, no vocals. Post-tonal improvised music influenced by contemporary "
+        "classical language and modern jazz abstraction. Emphasis on non-functional harmony, "
+        "chromatic instability and asymmetric phrasing rather than themes or grooves. Rhythm section "
+        "avoids repetition and supports harmonic instability. Guitar is used as a textural and "
+        "intervallic instrument, becoming a restrained lead voice only in the solo before returning "
+        "to clean texture. Intentionally anti-listening and resistant to passive enjoyment."
+    ),
+    "Radical Anti-Listening": (
+        "Instrumental only, no vocals. Radical anti-listening music that resists comfort, "
+        "memorability and tonal grounding. Harmony treated as unstable vertical blocks rather than "
+        "progressions, avoiding triadic and functional motion. No groove repetition, no lyrical themes, "
+        "no cinematic or fusion traits. Clean electric guitar used dry and unsweetened, briefly shifting "
+        "to restrained lead guitar during the solo, then returning clean. Music remains unresolved, "
+        "uncomfortable and non-functional by design."
+    ),
 }
 
 # Keep original for backwards compatibility
@@ -184,3 +208,145 @@ CHORD_EXTENSIONS = {
     "Quartal/Sus": "[quartal voicings, sus4 sus2, open harmony]",
     "Sophisticated": "[sophisticated harmony, complex chords, jazz voicings]",
 }
+
+# Lyric templates for Suno's Lyrics field
+# These use bracket section tags and parenthetical harmonic directives
+# to control actual song structure. Must NOT be modified by LLM.
+LYRIC_TEMPLATES = {
+    "None": "",
+    "Anti-Listening (Controlled)": (
+        "[Opening Field]\n"
+        "(intervallic harmonic block, no tonal center)\n"
+        "(chromatic vertical cluster, avoid triadic harmony)\n"
+        "(non-functional harmony, no root motion)\n"
+        "\n"
+        "[Primary Material]\n"
+        "(fragmented thematic cell, harmonic displacement)\n"
+        "(asymmetric phrase length, tonal center displaced)\n"
+        "(fragmented thematic cell, chromatic instability)\n"
+        "\n"
+        "[Transition]\n"
+        "(abrupt harmonic interruption)\n"
+        "(abrupt harmonic interruption)\n"
+        "\n"
+        "[Thematic Field]\n"
+        "(intervallic harmonic block, avoid triadic harmony)\n"
+        "(non-parallel harmonic shift, no functional root motion)\n"
+        "(chromatic vertical cluster, unstable harmonic field)\n"
+        "\n"
+        "[Instrumental Break]\n"
+        "(lead guitar solo, angular phrasing, harmony remains unstable)\n"
+        "(lead guitar solo, sparse gestures, vertical harmony emphasis)\n"
+        "\n"
+        "[Final Field]\n"
+        "(harmonic field transforms, still no tonal center)\n"
+        "(chromatic suspension, no cadence)\n"
+        "\n"
+        "[Outro]\n"
+        "(harmonic suspension, unresolved ending)"
+    ),
+    "Anti-Tonal (Hard)": (
+        "[Opening Field]\n"
+        "(intervallic material, no tonal grounding)\n"
+        "(chromatic displacement, avoid triadic harmony)\n"
+        "(non-functional vertical harmony)\n"
+        "\n"
+        "[Material Field A]\n"
+        "(fragmented thematic cell, rotating tonal center)\n"
+        "(intervallic displacement, asymmetric phrasing)\n"
+        "(fragmented thematic cell, no resolution)\n"
+        "\n"
+        "[Interruption]\n"
+        "(abrupt harmonic cut)\n"
+        "(abrupt harmonic cut)\n"
+        "\n"
+        "[Material Field B]\n"
+        "(chromatic vertical cluster, no functional root motion)\n"
+        "(non-parallel harmonic shift, tonal center displaced)\n"
+        "(intervallic tension, unstable harmonic field)\n"
+        "\n"
+        "[Development Field]\n"
+        "(thematic fragments recombined, increased instability)\n"
+        "(chromatic expansion, no repetition)\n"
+        "(intervallic tension, no tonal center)\n"
+        "\n"
+        "[Instrumental Break]\n"
+        "(lead guitar solo, angular phrasing, harmony remains unstable)\n"
+        "(lead guitar solo, physically playable but uncomfortable)\n"
+        "(lead guitar solo, rests used as tension)\n"
+        "\n"
+        "[Post-Solo Field]\n"
+        "(clean guitar texture returns, non-functional harmony)\n"
+        "(intervallic displacement continues)\n"
+        "\n"
+        "[Outro]\n"
+        "(open harmonic field, unresolved)"
+    ),
+    "Radical / Anti-Musical": (
+        "[Disorientation]\n"
+        "(intervallic harmonic block, no tonal center)\n"
+        "(chromatic vertical cluster, avoid triadic harmony)\n"
+        "(non-functional harmony, no root motion)\n"
+        "\n"
+        "[Fragment Field]\n"
+        "(fragmented cell, harmonic displacement)\n"
+        "(fragmented cell, chromatic instability)\n"
+        "(fragmented cell, asymmetric phrase length)\n"
+        "\n"
+        "[Void]\n"
+        "(silence or sustained texture, harmonic suspension)\n"
+        "(silence or sustained texture, harmonic suspension)\n"
+        "\n"
+        "[Instability Field]\n"
+        "(non-parallel harmonic blocks, no progression)\n"
+        "(intervallic collision, tonal center erased)\n"
+        "(chromatic vertical mass, no functional grounding)\n"
+        "\n"
+        "[Instrumental Break]\n"
+        "(lead guitar solo, sparse angular gestures)\n"
+        "(lead guitar solo, physical but intentionally awkward)\n"
+        "(lead guitar solo, harmony resists normalization)\n"
+        "\n"
+        "[Collapse Field]\n"
+        "(clean guitar texture, harmonic field deteriorates)\n"
+        "(intervallic residue, no closure)\n"
+        "\n"
+        "[Outro]\n"
+        "(abrupt or unresolved ending)"
+    ),
+    "Pulse Field": (
+        "[Opening]\n"
+        "(pulse established, no tonal center)\n"
+        "\n"
+        "[Pulse Field]\n"
+        "(persistent pulse, non-functional harmony)\n"
+        "(persistent pulse, intervallic displacement)\n"
+        "(persistent pulse, avoid triadic harmony)\n"
+        "\n"
+        "[Thematic Friction]\n"
+        "(fragmented material, pulse maintained)\n"
+        "(harmonic tension increases, pulse unchanged)\n"
+        "\n"
+        "[Pulse Field]\n"
+        "(pulse continues, tonal center rotates)\n"
+        "(pulse altered, harmonic instability)\n"
+        "\n"
+        "[Instrumental Break]\n"
+        "(lead guitar solo, phrasing pushes against pulse)\n"
+        "(lead guitar solo, angular lines, no resolution)\n"
+        "(lead guitar solo, harmony resists normalization)\n"
+        "\n"
+        "[Final Pulse]\n"
+        "(pulse weakens, harmonic field unstable)\n"
+        "(pulse fragments)\n"
+        "\n"
+        "[Outro]\n"
+        "(pulse stops abruptly, unresolved)"
+    ),
+}
+
+# Terms to remove/replace when "Replace Guitar Stem" is active
+GUITAR_REPLACE_REMOVE = ["fusion", "lead piano", "expressive soloist", "piano solo",
+                         "keyboard solo", "piano melody", "piano lead"]
+GUITAR_REPLACE_APPEND = ("guitar is always the primary melodic voice, "
+                         "other instruments provide only harmonic and rhythmic support")

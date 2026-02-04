@@ -18,6 +18,8 @@ well-crafted music prompt that combines all the user's selections harmoniously.
 - NO ARTIST NAMES: Never use musician names (no Coltrane, Metheny, Scofield, etc.) - Suno blocks these
 - UNDER 200 WORDS: Keep prompts concise
 - COMMA-SEPARATED: Use comma-separated descriptors
+- LYRICS FIELD IS SEPARATE: If a lyric template is mentioned, it informs the aesthetic but do NOT include lyrics content in the style prompt
+- GUITAR REPLACEMENT MODE: When the user indicates they will replace the guitar stem, ensure guitar is ALWAYS the primary melodic voice. Piano, bass, drums provide ONLY harmonic and rhythmic support. Never use "fusion", "lead piano", "expressive soloist", "piano solo", or "keyboard solo"
 
 ## COHERENCE RULES:
 - If mood is "Intimate" or "Mellow", use clean guitar tones, brushed drums, soft dynamics
@@ -124,6 +126,13 @@ def build_selection_message(selections: dict) -> str:
 
     if selections.get("extensions") and selections["extensions"] != "None":
         parts.append(f"Chord Extensions: {selections['extensions']}")
+
+    if selections.get("lyric_template") and selections["lyric_template"] != "None":
+        parts.append(f"Aesthetic context: {selections['lyric_template']} (do NOT include lyrics in output)")
+
+    if selections.get("replace_guitar"):
+        parts.append("IMPORTANT: User will replace the guitar stem. Guitar MUST be the only melodic voice. "
+                     "Piano/bass/drums provide only support. Avoid: fusion, lead piano, expressive soloist.")
 
     if not parts:
         return "Generate a default smooth jazz quartet prompt with guitar lead and [complex chord progression]"
