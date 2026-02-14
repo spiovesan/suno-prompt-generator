@@ -1,6 +1,46 @@
-# Multiple style presets for radical variety
-# STRICTLY quartet only: guitar (lead), piano (comping), bass, drums
-# Guitar is the primary melodic/lead instrument, piano provides harmonic support
+"""
+Unified data for Suno Prompt Studio.
+Combines prompt_generator (jazz-specific) and workflow_builder (universal) data.
+"""
+
+# =============================================================================
+# GENRES - Jazz first for conditional UI
+# =============================================================================
+GENRES = [
+    "Jazz",  # First for jazz-specific features
+    "Lo-fi",
+    "Pop",
+    "Rock",
+    "Hip-Hop",
+    "R&B",
+    "Electronic",
+    "EDM",
+    "House",
+    "Techno",
+    "Ambient",
+    "Classical",
+    "Country",
+    "Folk",
+    "Metal",
+    "Indie",
+    "Soul",
+    "Funk",
+    "Reggae",
+    "Blues",
+    "Trap",
+    "Drill",
+    "Future Bass",
+    "Big Room Trance",
+    "Progressive House",
+    "Synthwave",
+    "Cinematic",
+]
+
+# =============================================================================
+# JAZZ-SPECIFIC (from prompt_generator)
+# =============================================================================
+
+# Jazz style presets - strictly quartet: guitar (lead), piano (comping), bass, drums
 STYLE_PRESETS = {
     "Smooth Jazz": (
         "smooth jazz quartet, jazz guitar lead melody, "
@@ -101,32 +141,7 @@ STYLE_PRESETS = {
 # Keep original for backwards compatibility
 BASE_PROMPT = STYLE_PRESETS["Smooth Jazz"]
 
-# Key signatures with modal implications
-KEY_SIGNATURES = {
-    "None": "",
-    "C major": "in C major, bright Ionian clarity",
-    "G major": "in G major, open pastoral Ionian",
-    "D major": "in D major, bright and warm",
-    "A major": "in A major, brilliant and uplifting",
-    "E major": "in E major, bright and resonant",
-    "F major": "in F major, warm Lydian-tinged",
-    "Bb major": "in Bb major, warm jazz standard key",
-    "Eb major": "in Eb major, classic jazz key, rich",
-    "Ab major": "in Ab major, lush and romantic",
-    "Db major": "in Db major, dreamy Lydian colors",
-    "D Dorian": "in D Dorian mode, minor with raised 6th, jazz minor feel",
-    "A Dorian": "in A Dorian mode, cool minor jazz color",
-    "E Phrygian": "in E Phrygian mode, Spanish-tinged, dark exotic",
-    "F Lydian": "in F Lydian mode, bright raised 4th, dreamy",
-    "G Mixolydian": "in G Mixolydian mode, dominant feel, bluesy",
-    "A minor": "in A minor, Aeolian melancholy",
-    "D minor": "in D minor, dark and passionate",
-    "E minor": "in E minor, somber and reflective",
-    "G minor": "in G minor, dramatic and emotional",
-    "C minor": "in C minor, intense and stormy",
-}
-
-# Style influences - guitar as lead focus
+# Jazz style influences - guitar as lead focus
 STYLE_INFLUENCES = {
     "None": "",
     "1959 Modal Cool": "late 50s modal jazz, guitar plays So What theme, quartal harmony, spacious guitar phrasing",
@@ -145,38 +160,7 @@ STYLE_INFLUENCES = {
     "Gritty Blues-Funk": "gritty guitar tone, bluesy bends, funky comping, raw energy guitar lead",
 }
 
-TEMPO_VARIATIONS = {
-    "None": "",
-    "Slow (60-80 BPM)": "slow tempo, around 70 BPM, space for guitar expression",
-    "Medium (80-110 BPM)": "medium tempo, around 95 BPM, relaxed swing feel",
-    "Uptempo (110-130 BPM)": "uptempo, around 120 BPM, driving energy",
-    "Fast (130+ BPM)": "fast tempo, energetic pace, virtuosic guitar",
-}
-
-MOOD_VARIATIONS = {
-    "None": "",
-    "Mellow": "mellow, relaxed atmosphere, smooth guitar tone",
-    "Intimate": "intimate, soft dynamics, delicate guitar touch",
-    "Uplifting": "uplifting, positive energy, bright guitar melody",
-    "Energetic": "energetic, driving intensity, aggressive guitar attack",
-    "Melancholic": "melancholic, emotional depth, weeping guitar lines",
-    "Dreamy": "dreamy, floating atmosphere, reverb-laden guitar",
-    "Dark": "dark, brooding atmosphere, minor guitar phrases",
-    "Searching": "searching, harmonic tension, exploratory guitar lines",
-}
-
-INTRO_VARIATIONS = {
-    "None": "",
-    "Guitar intro": "solo guitar intro, unaccompanied melody, band enters gradually",
-    "Guitar chords intro": "guitar chord intro with arpeggios, rhythm section joins",
-    "Ambient/Sparse": "atmospheric sparse intro, guitar harmonics, building arrangement",
-    "Bass and guitar": "bass and guitar duo intro, piano and drums enter later",
-    "Rubato guitar": "rubato guitar intro, free tempo, expressive bends",
-    "Full band": "full quartet from the start, guitar states theme immediately",
-}
-
-# Chord progression complexity - uses Suno bracket tags for better recognition
-# These avoid boring IVm7-Im7 patterns
+# Chord progression complexity - uses Suno bracket tags
 PROGRESSION_TYPES = {
     "None": "",
     "Complex Jazz": "[complex chord progression, jazz influences, extended harmonies]",
@@ -190,7 +174,7 @@ PROGRESSION_TYPES = {
     "Rich & Evolving": "[dynamic and complex chord progression, emotional depth]",
 }
 
-# How often chords change
+# Harmonic rhythm options
 HARMONIC_RHYTHM = {
     "None": "",
     "Static Vamp": "[static harmony, drone bass, minimal chord movement]",
@@ -199,7 +183,7 @@ HARMONIC_RHYTHM = {
     "Fast Changes": "[fast harmonic rhythm, rapid chord movement, bebop feel]",
 }
 
-# Chord voicing complexity
+# Chord extension options
 CHORD_EXTENSIONS = {
     "None": "",
     "7th Chords": "[seventh chords, maj7 min7 dom7 voicings]",
@@ -209,9 +193,467 @@ CHORD_EXTENSIONS = {
     "Sophisticated": "[sophisticated harmony, complex chords, jazz voicings]",
 }
 
-# Lyric templates for Suno's Lyrics field
-# These use bracket section tags and parenthetical harmonic directives
-# to control actual song structure. Must NOT be modified by LLM.
+# Guitar stem replacement mode
+GUITAR_REPLACE_REMOVE = ["fusion", "lead piano", "expressive soloist", "piano solo",
+                         "keyboard solo", "piano melody", "piano lead"]
+GUITAR_REPLACE_APPEND = ("guitar is always the primary melodic voice, "
+                         "other instruments provide only harmonic and rhythmic support")
+
+# =============================================================================
+# UNIVERSAL (from workflow_builder)
+# =============================================================================
+
+# Major keys with emotional descriptions
+MAJOR_KEYS = {
+    "C Major": "Pure, open, neutral, balanced (clean pop, folk, beginner-friendly)",
+    "G Major": "Warm, natural, uplifting (country, Americana, classic rock)",
+    "D Major": "Triumphant, regal, bold (orchestral, rock ballads, anthemic)",
+    "A Major": "Bright, confident, joyful (pop rock, upbeat country, singalongs)",
+    "E Major": "Brash, energetic, exciting (rock, blues, aggressive pop)",
+    "B Major": "Radiant, assertive, polished (gospel, R&B, cinematic)",
+    "F Major": "Pastoral, calm, gentle (classical, singer-songwriter, soft rock)",
+    "Bb Major": "Noble, rich, full (jazz, brass-heavy arrangements, classical)",
+    "Eb Major": "Lush, mellow, expressive (soul, funk, ballads)",
+}
+
+# Minor keys with emotional descriptions
+MINOR_KEYS = {
+    "A Minor": "Sad, introspective, sincere (acoustic ballads, emo, lo-fi)",
+    "E Minor": "Haunting, melancholic, mysterious (metal, alt rock, cinematic)",
+    "D Minor": "Dramatic, tragic, emotional (classical, folk noir, film scoring)",
+    "B Minor": "Dark, brooding, poetic (indie, alt-pop, gothic rock)",
+    "F# Minor": "Tense, sorrowful, expressive (experimental, downbeat pop, EDM)",
+    "C# Minor": "Ethereal, romantic, haunting (dream pop, ambient, solo piano)",
+    "G Minor": "Bold, mournful, stormy (classical, jazz, moody pop)",
+}
+
+# Musical modes
+MODES = {
+    "Ionian (Major)": {
+        "mood": "Bright, happy, stable",
+        "feel": "Optimistic, confident",
+        "genres": "Pop, country, classical, folk, children's music",
+    },
+    "Dorian": {
+        "mood": "Cool, soulful, moody but hopeful",
+        "feel": "A minor scale with a jazzy or gospel uplift",
+        "genres": "Funk, soul, gospel, R&B, jazz, Celtic folk",
+    },
+    "Phrygian": {
+        "mood": "Dark, exotic, tense",
+        "feel": "Intense, dramatic",
+        "genres": "Flamenco, metal, Middle Eastern, Spanish-influenced",
+    },
+    "Lydian": {
+        "mood": "Dreamy, ethereal, expansive",
+        "feel": "Bright but floaty, surreal",
+        "genres": "Film scores, dream pop, progressive rock, fusion",
+    },
+    "Mixolydian": {
+        "mood": "Gritty, bluesy, relaxed confidence",
+        "feel": "Like major, but more swagger",
+        "genres": "Blues, rock, country, funk, jam band music",
+    },
+    "Aeolian (Minor)": {
+        "mood": "Sad, introspective, dramatic",
+        "feel": "Classic minor feel with emotional pull",
+        "genres": "Alt rock, ballads, EDM, cinematic, folk",
+    },
+    "Locrian": {
+        "mood": "Unsettling, chaotic, unresolved",
+        "feel": "Darkest mode, diminished tonic makes it unstable",
+        "genres": "Experimental, avant-garde, some black metal",
+    },
+}
+
+# Time signatures
+TIME_SIGNATURES = {
+    "4/4": "Standard, driving, marching (most common)",
+    "3/4": "Waltz, flowing, romantic",
+    "6/8": "Rolling, compound, shuffle feel",
+    "2/4": "March, polka, rapid-fire",
+    "12/8": "Swinging triplets, soulful, gospel groove",
+    "5/4": "Odd, progressive, unsettling",
+    "7/8": "Complex, prog rock, asymmetric",
+}
+
+# Tempo ranges
+TEMPO_RANGES = {
+    "None": "",
+    "Slow (60-80 BPM)": "Intimate, meditative, slow-burning",
+    "Mid-tempo (80-110 BPM)": "Groovy, versatile, laid-back groove",
+    "Upbeat (110-130 BPM)": "Energetic, punchy and upbeat, driving rhythm",
+    "Fast (130+ BPM)": "High energy, dance, urgency",
+}
+
+# Mood variations
+MOOD_VARIATIONS = {
+    "None": "",
+    "Mellow": "mellow, relaxed atmosphere, smooth tone",
+    "Intimate": "intimate, soft dynamics, delicate touch",
+    "Uplifting": "uplifting, positive energy, bright melody",
+    "Energetic": "energetic, driving intensity, aggressive attack",
+    "Melancholic": "melancholic, emotional depth, weeping lines",
+    "Dreamy": "dreamy, floating atmosphere, reverb-laden",
+    "Dark": "dark, brooding atmosphere, minor phrases",
+    "Searching": "searching, harmonic tension, exploratory lines",
+}
+
+# Song section types
+SECTION_TYPES = [
+    "Intro",
+    "Verse",
+    "Pre-Chorus",
+    "Chorus",
+    "Post-Chorus",
+    "Bridge",
+    "Breakdown",
+    "Buildup",
+    "Drop",
+    "Solo",
+    "Outro",
+    "Coda",
+]
+
+# Poetic meters for lyrics
+POETIC_METERS = {
+    "Iamb (da-DUM)": {
+        "pattern": "da-DUM",
+        "example": "I walked alone beneath the sky",
+        "feel": "Smooth, natural",
+        "genres": "Pop, folk, ballads",
+    },
+    "Trochee (DA-dum)": {
+        "pattern": "DA-dum",
+        "example": "Shadows fall on ruined stone",
+        "feel": "Forceful, chant-like",
+        "genres": "Rock, gothic, chanty hooks",
+    },
+    "Anapest (da-da-DUM)": {
+        "pattern": "da-da-DUM",
+        "example": "In the dead of the night, I was gone",
+        "feel": "Flowing, builds momentum",
+        "genres": "Rap, gospel, theatrical",
+    },
+    "Dactyl (DA-da-dum)": {
+        "pattern": "DA-da-dum",
+        "example": "Memories fade away from me",
+        "feel": "Rolling, dramatic",
+        "genres": "6/8 or 12/8 feel songs",
+    },
+    "Amphibrach (da-DUM-da)": {
+        "pattern": "da-DUM-da",
+        "example": "I walked along the ruins",
+        "feel": "Balanced yet flowing",
+        "genres": "3/4 or 9/8 feels",
+    },
+}
+
+# Audio quality template
+AUDIO_QUALITY_TEMPLATE = """{genre} audio quality:
+studio quality, fully mastered
+well-balanced highs, mids, and lows
+tight sub-bass, centered and controlled
+punchy low-end with clear kick separation
+warm midrange presence, no boxiness
+crystal-clear leads, minimal reverb, no muddy mix
+vocals upfront and natural, crisp presence with smooth air
+light de-ess on sibilance, gentle saturation only
+short plate reverb with subtle pre-delay, tight slapback delay for space
+double/triple vocal stacks low in mix, clear diction, no over-tuning
+sidechain preserves vocal transients; sub energy never masks vocals
+carved 200–400 Hz for clarity, added 8–12 kHz sheen for sparkle
+dry and polished vocal sound, controlled reverb, sharp transient definition, no distortion
+festival-ready, cinematic, wide stereo field, energetic club mix
+transparent mastering with -1 dBTP ceiling, no pumping on mix bus
+spotless noise floor, no hiss, no artifacts"""
+
+# Default section presets per genre
+DEFAULT_SECTIONS = {
+    "Pop": ["Intro", "Verse", "Pre-Chorus", "Chorus", "Verse", "Chorus", "Bridge", "Chorus", "Outro"],
+    "Rock": ["Intro", "Verse", "Chorus", "Verse", "Chorus", "Solo", "Chorus", "Outro"],
+    "EDM": ["Intro", "Buildup", "Drop", "Breakdown", "Buildup", "Drop", "Outro"],
+    "Hip-Hop": ["Intro", "Verse", "Chorus", "Verse", "Chorus", "Verse", "Outro"],
+    "Jazz": ["Intro", "Verse", "Solo", "Verse", "Solo", "Outro"],
+    "default": ["Intro", "Verse", "Chorus", "Verse", "Chorus", "Bridge", "Chorus", "Outro"],
+}
+
+# =============================================================================
+# SECTION INSTRUMENTS - Suggestions by genre, section type, and mood
+# =============================================================================
+
+SECTION_INSTRUMENTS = {
+    "Jazz": {
+        "Intro": {
+            "Mellow": "soft brushed drums, walking bass intro, gentle piano",
+            "Intimate": "rubato piano, light bass, sparse drums",
+            "Energetic": "snappy drum fill, bright piano chord, punchy bass",
+            "Dark": "sparse bass notes, moody piano, brush sticks",
+            "Dreamy": "sustained piano chords, soft bass, ambient brushes",
+            "default": "gentle piano intro, soft drums, walking bass"
+        },
+        "Verse": {
+            "Mellow": "warm guitar melody, soft comping piano, walking bass",
+            "Intimate": "delicate guitar, sparse piano, gentle bass",
+            "Energetic": "punchy rhythm section, walking bass, crisp drums",
+            "Dark": "minor guitar phrases, dark piano voicings, deep bass",
+            "Dreamy": "floating guitar lines, Rhodes piano, soft bass",
+            "default": "guitar lead, piano comping, walking bass"
+        },
+        "Chorus": {
+            "Mellow": "full quartet, slightly building, warm tone",
+            "Energetic": "driving rhythm, full energy, walking bass",
+            "Dark": "intense minor harmonies, powerful bass, driving drums",
+            "default": "full band, building intensity"
+        },
+        "Solo": {
+            "Mellow": "expressive guitar solo, sparse piano accompaniment",
+            "Energetic": "virtuosic guitar runs, driving rhythm section",
+            "Dark": "angular guitar lines, moody backing",
+            "default": "guitar solo, sparse accompaniment"
+        },
+        "Bridge": {
+            "default": "harmonic exploration, rubato section, building tension"
+        },
+        "Outro": {
+            "Mellow": "fading piano, soft drums, gentle close",
+            "Energetic": "driving finish, powerful final chord",
+            "default": "gentle fade, final chord, soft drums"
+        },
+    },
+    "Rock": {
+        "Intro": {
+            "Mellow": "clean guitar arpeggios, soft drums",
+            "Energetic": "power chord blast, driving drums, aggressive",
+            "Dark": "distorted guitar riff, heavy drums, ominous bass",
+            "default": "guitar riff, solid drums, punchy bass"
+        },
+        "Verse": {
+            "Mellow": "clean guitar chords, steady rhythm, soft dynamics",
+            "Energetic": "driving guitar, pounding drums, pumping bass",
+            "Dark": "heavy riff, dark tone, aggressive bass",
+            "default": "rhythm guitar, solid drums, bass groove"
+        },
+        "Pre-Chorus": {
+            "default": "building intensity, rising guitars, drum fills"
+        },
+        "Chorus": {
+            "Mellow": "full band, melodic guitars, anthemic feel",
+            "Energetic": "explosive energy, power chords, crashing cymbals",
+            "Dark": "heavy wall of sound, aggressive guitars",
+            "default": "full band explosion, big guitars, driving drums"
+        },
+        "Solo": {
+            "Mellow": "melodic guitar solo, emotional bends",
+            "Energetic": "shredding guitar solo, fast runs, wah pedal",
+            "Dark": "dark solo, minor pentatonic, aggressive tone",
+            "default": "guitar solo, expressive lead, backing power chords"
+        },
+        "Bridge": {
+            "default": "stripped back section, building tension, quiet to loud"
+        },
+        "Breakdown": {
+            "default": "half-time drums, heavy riffs, massive sound"
+        },
+        "Outro": {
+            "default": "fading guitars, final chord, drum fill finish"
+        },
+    },
+    "Pop": {
+        "Intro": {
+            "Mellow": "soft synth pad, light drums, gentle melody",
+            "Uplifting": "bright piano, upbeat drums, positive vibe",
+            "Energetic": "punchy synths, four-on-floor, catchy hook",
+            "default": "catchy hook, light production, clean sound"
+        },
+        "Verse": {
+            "Mellow": "acoustic guitar, soft beat, intimate vocals",
+            "Uplifting": "bright production, bouncy bass, positive energy",
+            "Energetic": "driving beat, synth stabs, energetic bass",
+            "default": "clean production, steady rhythm, melodic hooks"
+        },
+        "Pre-Chorus": {
+            "default": "building energy, rising synths, drum builds"
+        },
+        "Chorus": {
+            "Mellow": "full but soft, layered vocals, warm",
+            "Uplifting": "explosive joy, big hooks, soaring melody",
+            "Energetic": "massive drop, full production, anthemic",
+            "default": "big hooks, full production, catchy melody"
+        },
+        "Bridge": {
+            "default": "stripped back, emotional moment, building return"
+        },
+        "Post-Chorus": {
+            "default": "infectious hook, dance break, memorable riff"
+        },
+        "Outro": {
+            "default": "fading chorus, final hook, gentle close"
+        },
+    },
+    "EDM": {
+        "Intro": {
+            "Energetic": "atmospheric synths, rising energy, anticipation",
+            "Dark": "dark pads, ominous bass, tension building",
+            "default": "atmospheric pads, subtle beat, building mood"
+        },
+        "Buildup": {
+            "Energetic": "rising synths, snare rolls, intense build",
+            "Dark": "dark risers, aggressive buildup, tension",
+            "default": "rising filter sweep, snare build, increasing energy"
+        },
+        "Drop": {
+            "Energetic": "massive bass drop, punchy kicks, full energy",
+            "Dark": "heavy bass, aggressive synths, dark drops",
+            "default": "massive bass drop, punchy synths, full release"
+        },
+        "Breakdown": {
+            "Mellow": "stripped back, melodic moment, soft pads",
+            "default": "melodic section, soft pads, emotional moment"
+        },
+        "Outro": {
+            "default": "fading energy, final drop reference, outro pads"
+        },
+    },
+    "Hip-Hop": {
+        "Intro": {
+            "Mellow": "lo-fi beat, soft sample, laid back",
+            "Energetic": "hard-hitting intro, trap drums, 808 bass",
+            "Dark": "dark sample, ominous beat, heavy bass",
+            "default": "beat intro, sample chop, setting the vibe"
+        },
+        "Verse": {
+            "Mellow": "smooth beat, jazzy samples, laid back flow",
+            "Energetic": "hard drums, aggressive 808, trap hi-hats",
+            "Dark": "dark production, heavy bass, intense beat",
+            "default": "driving beat, punchy drums, bass-heavy"
+        },
+        "Chorus": {
+            "Mellow": "melodic hook, smooth production, catchy",
+            "Energetic": "anthemic hook, full production, memorable",
+            "default": "catchy hook, full beat, memorable melody"
+        },
+        "Outro": {
+            "default": "beat continues, fading out, final ad-libs"
+        },
+    },
+    "Ambient": {
+        "Intro": {
+            "default": "evolving pad, subtle texture, atmospheric"
+        },
+        "Verse": {
+            "default": "floating textures, sparse melody, spacious"
+        },
+        "Buildup": {
+            "default": "layering synths, rising tension, evolving"
+        },
+        "Drop": {
+            "default": "full sonic wash, deep bass, immersive"
+        },
+        "Breakdown": {
+            "default": "stripped textures, breathing room, minimal"
+        },
+        "Outro": {
+            "default": "fading textures, dissolving into silence"
+        },
+    },
+    "Electronic": {
+        "Intro": {
+            "default": "synth arpeggio, electronic pulse, building"
+        },
+        "Verse": {
+            "default": "driving synths, electronic beat, pulsing bass"
+        },
+        "Buildup": {
+            "default": "rising arpeggios, filter sweep, snare build"
+        },
+        "Drop": {
+            "default": "full synth drop, massive bass, energetic"
+        },
+        "Breakdown": {
+            "default": "melodic interlude, softer synths, breathing"
+        },
+        "Outro": {
+            "default": "fading arpeggios, closing synth pad"
+        },
+    },
+    "Metal": {
+        "Intro": {
+            "default": "heavy riff, double bass drums, aggressive"
+        },
+        "Verse": {
+            "default": "palm-muted riffs, driving drums, heavy bass"
+        },
+        "Chorus": {
+            "default": "massive wall of sound, powerful vocals section"
+        },
+        "Solo": {
+            "default": "shredding guitar solo, aggressive tone, fast runs"
+        },
+        "Breakdown": {
+            "default": "heavy breakdown, half-time drums, crushing riffs"
+        },
+        "Outro": {
+            "default": "final riff, powerful ending, crash cymbal"
+        },
+    },
+    "Lo-fi": {
+        "Intro": {
+            "default": "vinyl crackle, soft piano, mellow beat"
+        },
+        "Verse": {
+            "default": "dusty drums, jazzy chords, warm bass"
+        },
+        "Chorus": {
+            "default": "melodic hook, soft keys, tape saturation"
+        },
+        "Outro": {
+            "default": "fading beat, vinyl noise, gentle close"
+        },
+    },
+    "default": {
+        "Intro": {"default": "atmospheric intro, setting the mood"},
+        "Verse": {"default": "main progression, moderate energy"},
+        "Pre-Chorus": {"default": "building tension, rising energy"},
+        "Chorus": {"default": "full energy, main hook, memorable"},
+        "Bridge": {"default": "contrast section, new perspective"},
+        "Solo": {"default": "instrumental feature, expressive"},
+        "Breakdown": {"default": "stripped back, building tension"},
+        "Buildup": {"default": "rising energy, anticipation"},
+        "Drop": {"default": "full release, maximum energy"},
+        "Outro": {"default": "closing section, resolving"},
+    },
+}
+
+
+def get_section_instruments(genre: str, section_type: str, mood: str = "default") -> str:
+    """
+    Get suggested instruments for a section based on genre and mood.
+
+    Args:
+        genre: The music genre
+        section_type: The section type (Intro, Verse, Chorus, etc.)
+        mood: The mood (Mellow, Energetic, Dark, etc.) or "default"
+
+    Returns:
+        String with instrument/mood suggestions for the section
+    """
+    # Get genre mapping, fall back to default
+    genre_map = SECTION_INSTRUMENTS.get(genre, SECTION_INSTRUMENTS.get("default", {}))
+
+    # Get section mapping
+    section_map = genre_map.get(section_type, {})
+    if not section_map:
+        # Try default genre if specific genre doesn't have this section
+        section_map = SECTION_INSTRUMENTS.get("default", {}).get(section_type, {})
+
+    # Get mood-specific or default
+    return section_map.get(mood, section_map.get("default", ""))
+
+# =============================================================================
+# LYRIC TEMPLATES (from prompt_generator)
+# =============================================================================
+
 LYRIC_TEMPLATES = {
     "None": "",
     "Anti-Listening (Controlled)": (
@@ -344,9 +786,3 @@ LYRIC_TEMPLATES = {
         "(pulse stops abruptly, unresolved)"
     ),
 }
-
-# Terms to remove/replace when "Replace Guitar Stem" is active
-GUITAR_REPLACE_REMOVE = ["fusion", "lead piano", "expressive soloist", "piano solo",
-                         "keyboard solo", "piano melody", "piano lead"]
-GUITAR_REPLACE_APPEND = ("guitar is always the primary melodic voice, "
-                         "other instruments provide only harmonic and rhythmic support")
