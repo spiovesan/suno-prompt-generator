@@ -18,6 +18,7 @@ GENRES = [
     "House",
     "Techno",
     "Ambient",
+    "Meditation",  # Healing, relaxation, spa music
     "Classical",
     "Country",
     "Folk",
@@ -160,6 +161,107 @@ STYLE_INFLUENCES = {
     "Gritty Blues-Funk": "gritty guitar tone, bluesy bends, funky comping, raw energy guitar lead",
 }
 
+
+def get_genre_preset_names(genre: str) -> dict:
+    """
+    Get style preset names adapted to the selected genre.
+
+    For Jazz, returns original names.
+    For other genres, replaces "Jazz" with the genre name.
+
+    Example: "Smooth Jazz" → "Smooth Ambient" when genre is Ambient
+    """
+    if genre == "Jazz":
+        return STYLE_PRESETS
+
+    adapted = {}
+    for name, value in STYLE_PRESETS.items():
+        # Replace "Jazz" with genre name in preset names
+        if "Jazz" in name:
+            new_name = name.replace("Jazz", genre)
+        else:
+            # For names without "Jazz" (like "Bebop"), append genre
+            new_name = f"{name} {genre}"
+        adapted[new_name] = value
+
+    return adapted
+
+
+def resolve_preset_value(preset_name: str, genre: str) -> str:
+    """
+    Resolve a preset name to its value, handling genre-adapted names.
+
+    Args:
+        preset_name: The display name (may be genre-adapted like "Smooth Rock")
+        genre: The current genre
+
+    Returns:
+        The preset value/description
+    """
+    # If it's an original preset name, use directly
+    if preset_name in STYLE_PRESETS:
+        return STYLE_PRESETS[preset_name]
+
+    # Otherwise, get the adapted dict and look up
+    adapted = get_genre_preset_names(genre)
+    if preset_name in adapted:
+        return adapted[preset_name]
+
+    # Fallback to first preset
+    return list(STYLE_PRESETS.values())[0]
+
+
+def resolve_influence_value(influence_name: str, genre: str) -> str:
+    """
+    Resolve an influence name to its value, handling genre-adapted names.
+
+    Args:
+        influence_name: The display name
+        genre: The current genre
+
+    Returns:
+        The influence value/description
+    """
+    # Get the appropriate influences dict for the genre
+    influences = get_genre_influence_names(genre)
+    if influence_name in influences:
+        return influences[influence_name]
+
+    # Fallback
+    return ""
+
+
+def get_genre_influence_names(genre: str) -> dict:
+    """
+    Get style influence names adapted to the selected genre.
+
+    For Jazz, returns original jazz-specific influences.
+    For other genres, returns universal influences that work across genres.
+    """
+    if genre == "Jazz":
+        return STYLE_INFLUENCES
+
+    # Universal influences that work for any genre
+    universal_influences = {
+        "None": "",
+        "1959 Modal Cool": "modal harmony, quartal voicings, spacious phrasing",
+        "70s Electric Funk": "1970s electric funk, wah riffs, chromatic bass, extended 9th chords",
+        "Lyrical Melodic": "lyrical melodies, singing tone, open voicings, warm harmonics",
+        "World Fusion": "world fusion rhythms, unusual scales, polychordal support",
+        "Impressionist Harmony": "impressionistic feel, parallel chord movement, whole tone colors, dreamy",
+        "Spiritual Intensity": "spiritual intensity, searching improvisation, transcendent building",
+        "Latin Virtuoso": "virtuosic Latin influence, fast runs, altered dominants",
+        "Solo Featured": "solo instrument featured, rubato phrasing, rich voicings",
+        "Modern Collective": "modern collective groove, interlocking parts, slash chords",
+        "Neo-Soul Smooth": "neo-soul influence, smooth lead, minor 9th vamps, laid-back",
+        "Contemporary Trio": "contemporary trio feel, melodic, flowing ninths, conversational",
+        "Dialogue Style": "conversational style, call and response, harmonic interplay",
+        "Gritty Blues-Funk": "gritty tone, bluesy bends, funky comping, raw energy",
+    }
+
+    return universal_influences
+
+
 # Chord progression complexity - uses Suno bracket tags
 PROGRESSION_TYPES = {
     "None": "",
@@ -265,6 +367,27 @@ MODES = {
         "genres": "Experimental, avant-garde, some black metal",
     },
 }
+
+# Modes grouped by key quality (for filtering)
+MAJOR_MODES = ["Ionian (Major)", "Lydian", "Mixolydian"]
+MINOR_MODES = ["Dorian", "Phrygian", "Aeolian (Minor)"]
+
+
+def get_modes_for_key_quality(is_major: bool) -> list:
+    """
+    Get modes appropriate for major or minor key quality.
+
+    Args:
+        is_major: True for major keys, False for minor keys
+
+    Returns:
+        List of mode names appropriate for the key quality
+    """
+    if is_major:
+        return MAJOR_MODES
+    else:
+        return MINOR_MODES
+
 
 # Time signatures
 TIME_SIGNATURES = {
@@ -375,6 +498,8 @@ DEFAULT_SECTIONS = {
     "EDM": ["Intro", "Buildup", "Drop", "Breakdown", "Buildup", "Drop", "Outro"],
     "Hip-Hop": ["Intro", "Verse", "Chorus", "Verse", "Chorus", "Verse", "Outro"],
     "Jazz": ["Intro", "Verse", "Solo", "Verse", "Solo", "Outro"],
+    "Meditation": ["Intro", "Verse", "Verse", "Bridge", "Verse", "Outro"],
+    "Ambient": ["Intro", "Verse", "Breakdown", "Verse", "Outro"],
     "default": ["Intro", "Verse", "Chorus", "Verse", "Chorus", "Bridge", "Chorus", "Outro"],
 }
 
@@ -555,6 +680,31 @@ SECTION_INSTRUMENTS = {
         },
         "Outro": {
             "default": "fading textures, dissolving into silence"
+        },
+    },
+    "Meditation": {
+        "Intro": {
+            "Mellow": "gentle singing bowls, soft breath, nature sounds",
+            "Dreamy": "ethereal pads, distant wind chimes, soft drone",
+            "default": "soft pad, gentle bells, calming atmosphere"
+        },
+        "Verse": {
+            "Mellow": "warm drone, soft flute, gentle water sounds",
+            "Dreamy": "floating tones, celestial harmonics, soft harp",
+            "default": "sustained pad, gentle melody, breathing space"
+        },
+        "Chorus": {
+            "default": "layered harmonics, warm resonance, peaceful expansion"
+        },
+        "Bridge": {
+            "default": "deeper tones, grounding frequencies, still moment"
+        },
+        "Breakdown": {
+            "default": "minimal texture, pure silence, single tone"
+        },
+        "Outro": {
+            "Mellow": "fading bowls, returning to silence, final breath",
+            "default": "gentle fade, dissolving tones, peaceful silence"
         },
     },
     "Electronic": {

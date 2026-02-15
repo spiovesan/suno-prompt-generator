@@ -12,7 +12,8 @@ from data import (
     GENRES, MAJOR_KEYS, MINOR_KEYS, MODES, TIME_SIGNATURES,
     TEMPO_RANGES, MOOD_VARIATIONS, SECTION_TYPES, DEFAULT_SECTIONS,
     STYLE_PRESETS, STYLE_INFLUENCES, PROGRESSION_TYPES,
-    HARMONIC_RHYTHM, CHORD_EXTENSIONS, LYRIC_TEMPLATES, POETIC_METERS
+    HARMONIC_RHYTHM, CHORD_EXTENSIONS, LYRIC_TEMPLATES, POETIC_METERS,
+    get_modes_for_key_quality, get_genre_preset_names, get_genre_influence_names
 )
 from generator import (
     generate_outputs, validate_lyrics_format, validate_lyrics_with_llm,
@@ -55,9 +56,9 @@ with st.sidebar:
     # Generation mode
     st.subheader("Generation Mode")
     use_llm = st.toggle(
-        "Use LLM Generation (Jazz only)",
+        "Use LLM Generation",
         value=False,
-        help="Use AI to generate coherent jazz prompts. Requires API key."
+        help="Use AI to generate coherent style prompts. Requires API key."
     )
 
     # Replace guitar stem option
@@ -72,6 +73,19 @@ with st.sidebar:
         "Auto-fill section instruments",
         value=True,
         help="Automatically suggest instruments when loading presets (uses AI if API key provided)"
+    )
+
+    # Lyrics sync mode
+    st.selectbox(
+        "Lyrics sync mode",
+        options=["Smart merge", "Replace structure", "Keep structure"],
+        index=0,
+        key="lyrics_sync_mode",
+        help="""
+        • Smart merge: Keep preset + add missing section types from lyrics
+        • Replace structure: Lyrics completely replace song structure
+        • Keep structure: Never modify structure, just map lyrics at output
+        """
     )
 
     st.divider()
@@ -144,6 +158,35 @@ def create_section(section_type: str, instruments: str = "") -> dict:
         "instruments": instruments
     }
 
+
+def _find_insert_position(sections: list, new_type: str) -> int:
+    """Find best position to insert a new section type based on typical song structure."""
+    new_type_lower = new_type.lower()
+
+    # Section type ordering preference (typical song structure)
+    TYPE_ORDER = [
+        "intro", "verse", "pre-chorus", "chorus", "post-chorus",
+        "bridge", "breakdown", "buildup", "drop", "solo",
+        "interlude", "outro"
+    ]
+
+    try:
+        new_order = TYPE_ORDER.index(new_type_lower)
+    except ValueError:
+        return len(sections)  # Unknown type goes at end
+
+    # Find first section that should come after new_type
+    for i, s in enumerate(sections):
+        try:
+            existing_order = TYPE_ORDER.index(s['type'].lower())
+            if existing_order > new_order:
+                return i
+        except ValueError:
+            continue
+
+    return len(sections)  # Add at end if no suitable position
+
+
 if "sections" not in st.session_state:
     st.session_state.sections = [
         create_section("Intro", "ambient pads, soft piano"),
@@ -179,6 +222,7 @@ with col1:
         "Genre",
         options=GENRES,
         index=st.session_state.get("loaded_genre_idx", 0),
+        key="genre_select",
         help="Primary genre - Jazz enables jazz-specific options"
     )
     is_jazz = selected_genre == "Jazz"
@@ -190,16 +234,25 @@ with col2:
         "Key",
         options=list(all_keys.keys()),
         index=0,
+        key="key_select",
         help="The tonal center of your song"
     )
     if selected_key != "None":
         st.caption(f"_{all_keys[selected_key]}_")
 
 with col3:
+    # Filter modes based on key quality (major vs minor)
+    if selected_key != "None":
+        is_major_key = selected_key in MAJOR_KEYS
+        available_modes = get_modes_for_key_quality(is_major_key)
+    else:
+        available_modes = list(MODES.keys())  # Show all if no key selected
+
     selected_mode = st.selectbox(
         "Mode",
-        options=list(MODES.keys()),
+        options=available_modes,
         index=0,
+        key="mode_select",
         help="Modal flavor that affects emotional color"
     )
     mode_info = MODES[selected_mode]
@@ -212,6 +265,7 @@ with col4:
         "Time Signature",
         options=list(TIME_SIGNATURES.keys()),
         index=0,
+        key="time_sig_select",
         help="Beat grouping that defines the groove"
     )
     st.caption(f"_{TIME_SIGNATURES[selected_time_sig]}_")
@@ -221,6 +275,7 @@ with col5:
         "Tempo",
         options=list(TEMPO_RANGES.keys()),
         index=2,  # Default to Mid-tempo
+        key="tempo_select",
         help="Speed and energy of the song"
     )
     if selected_tempo != "None":
@@ -231,71 +286,73 @@ with col6:
         "Mood",
         options=list(MOOD_VARIATIONS.keys()),
         index=0,
+        key="mood_select",
         help="Overall atmosphere and feel"
     )
     if selected_mood != "None":
         st.caption(f"_{MOOD_VARIATIONS[selected_mood]}_")
 
 # =============================================================================
-# JAZZ OPTIONS (Conditional)
+# OPTIONS (Style Presets and Harmony)
 # =============================================================================
 
-if is_jazz:
-    st.divider()
-    st.header("🎸 Jazz Options")
+st.divider()
+st.header("🎛️ Options")
 
-    col_j1, col_j2 = st.columns(2)
+col_j1, col_j2 = st.columns(2)
 
-    with col_j1:
-        selected_preset = st.selectbox(
-            "Style Preset",
-            options=list(STYLE_PRESETS.keys()),
-            index=0,
-            help="Base jazz style template"
-        )
+with col_j1:
+    # Dynamic Style Preset names based on genre
+    preset_names = get_genre_preset_names(selected_genre)
+    selected_preset = st.selectbox(
+        "Style Preset",
+        options=list(preset_names.keys()),
+        index=0,
+        key="style_preset_select",
+        help="Base style template adapted to your genre"
+    )
 
-    with col_j2:
-        selected_influence = st.selectbox(
-            "Style Influence",
-            options=list(STYLE_INFLUENCES.keys()),
-            index=0,
-            help="Era or style influence to blend in"
-        )
+with col_j2:
+    # Dynamic Style Influence names based on genre
+    influence_names = get_genre_influence_names(selected_genre)
+    selected_influence = st.selectbox(
+        "Style Influence",
+        options=list(influence_names.keys()),
+        index=0,
+        key="style_influence_select",
+        help="Era or style influence to blend in"
+    )
 
-    # Harmony options
-    st.subheader("🎼 Harmony")
-    col_h1, col_h2, col_h3 = st.columns(3)
+# Harmony options
+st.subheader("🎼 Harmony")
+col_h1, col_h2, col_h3 = st.columns(3)
 
-    with col_h1:
-        selected_progression = st.selectbox(
-            "Chord Progression",
-            options=list(PROGRESSION_TYPES.keys()),
-            index=0,
-            help="Type of chord movement"
-        )
+with col_h1:
+    selected_progression = st.selectbox(
+        "Chord Progression",
+        options=list(PROGRESSION_TYPES.keys()),
+        index=0,
+        key="progression_select",
+        help="Type of chord movement"
+    )
 
-    with col_h2:
-        selected_harmonic_rhythm = st.selectbox(
-            "Harmonic Rhythm",
-            options=list(HARMONIC_RHYTHM.keys()),
-            index=0,
-            help="How often chords change"
-        )
+with col_h2:
+    selected_harmonic_rhythm = st.selectbox(
+        "Harmonic Rhythm",
+        options=list(HARMONIC_RHYTHM.keys()),
+        index=0,
+        key="harmonic_rhythm_select",
+        help="How often chords change"
+    )
 
-    with col_h3:
-        selected_extensions = st.selectbox(
-            "Chord Extensions",
-            options=list(CHORD_EXTENSIONS.keys()),
-            index=0,
-            help="Chord voicing complexity"
-        )
-else:
-    # Set defaults for non-jazz
-    selected_preset = "Smooth Jazz"
-    selected_influence = "None"
-    selected_progression = "None"
-    selected_harmonic_rhythm = "None"
-    selected_extensions = "None"
+with col_h3:
+    selected_extensions = st.selectbox(
+        "Chord Extensions",
+        options=list(CHORD_EXTENSIONS.keys()),
+        index=0,
+        key="extensions_select",
+        help="Chord voicing complexity"
+    )
 
 # =============================================================================
 # SONG STRUCTURE
@@ -320,13 +377,31 @@ with col_preset:
         choice = st.session_state.get("preset_select")
         if choice and choice != "-- Select Preset --":
             preset_sections = DEFAULT_SECTIONS.get(choice, DEFAULT_SECTIONS["default"])
+            current_sections = st.session_state.sections
 
-            # Create sections
-            new_sections = [create_section(s, "") for s in preset_sections]
+            # Merge: use preset types but keep extra sections if lyrics are longer
+            merged_sections = []
+
+            for i, preset_type in enumerate(preset_sections):
+                if i < len(current_sections):
+                    # Keep existing section's instruments if it has any, update type
+                    existing = current_sections[i]
+                    merged_sections.append(create_section(
+                        preset_type,
+                        existing.get('instruments', '')  # Preserve instruments from lyrics
+                    ))
+                else:
+                    # Preset has more sections than current - add new
+                    merged_sections.append(create_section(preset_type, ""))
+
+            # Keep extra sections from lyrics if they're longer than preset
+            if len(current_sections) > len(preset_sections):
+                for extra_section in current_sections[len(preset_sections):]:
+                    merged_sections.append(extra_section)
 
             # Auto-fill if enabled - store for processing after widgets load
             st.session_state["_pending_autofill"] = True
-            st.session_state.sections = new_sections
+            st.session_state.sections = merged_sections
 
             # Reset the selectbox
             st.session_state["preset_select"] = "-- Select Preset --"
@@ -363,26 +438,26 @@ elif st.session_state.get("_pending_autofill"):
     # Auto-fill disabled, clear flag
     st.session_state.pop("_pending_autofill", None)
 
-# Create sortable items using unique ID - format: "id|Type: instruments"
+# Create sortable items using 1-based index for display - format: "index|Type: instruments"
 sortable_items = [
-    f"{s['id']}|{s['type']}: {s.get('instruments', '') or '(no instruments)'}"
-    for s in st.session_state.sections
+    f"{i+1}|{s['type']}: {s.get('instruments', '') or '(no instruments)'}"
+    for i, s in enumerate(st.session_state.sections)
 ]
 
-# Build ID to section mapping
-id_to_section = {s['id']: s for s in st.session_state.sections}
+# Build index to section mapping (1-based index as string)
+idx_to_section = {str(i+1): s for i, s in enumerate(st.session_state.sections)}
 
 # Display sortable list (drag and drop)
 st.caption("Drag to reorder sections:")
 sorted_items = sort_items(sortable_items, direction="vertical")
 
-# Check if order changed by comparing IDs
-sorted_ids = [int(item.split("|")[0]) for item in sorted_items]
-current_ids = [s['id'] for s in st.session_state.sections]
+# Check if order changed by comparing indices
+sorted_indices = [item.split("|")[0] for item in sorted_items]
+current_indices = [str(i+1) for i in range(len(st.session_state.sections))]
 
-if sorted_ids != current_ids:
-    # Reorder sections based on drag result using ID mapping
-    st.session_state.sections = [id_to_section[sid] for sid in sorted_ids]
+if sorted_indices != current_indices:
+    # Reorder sections based on drag result using index mapping
+    st.session_state.sections = [idx_to_section[idx] for idx in sorted_indices]
     st.rerun()
 
 # Display editable sections
@@ -440,6 +515,7 @@ with col_template:
         "Lyric Template",
         options=list(LYRIC_TEMPLATES.keys()),
         index=0,
+        key="lyric_template_select",
         help="Structured lyric template (overridden by pasted lyrics)"
     )
 
@@ -451,8 +527,97 @@ suno_lyrics = st.text_area(
     height=150,
     placeholder="Paste lyrics from Suno here...\nThese will be included after the structure tags and take precedence over templates.",
     label_visibility="collapsed",
-    value=st.session_state.get("loaded_lyrics", "")
+    value=st.session_state.get("loaded_lyrics", ""),
+    key="suno_lyrics_input"
 )
+
+# Auto-sync Song Structure from pasted lyrics
+if "prev_lyrics" not in st.session_state:
+    st.session_state.prev_lyrics = ""
+if "prev_sync_mode" not in st.session_state:
+    st.session_state.prev_sync_mode = "Smart merge"
+
+current_lyrics = st.session_state.get("suno_lyrics_input", "")
+sync_mode = st.session_state.get("lyrics_sync_mode", "Smart merge")
+
+# Check if lyrics OR sync mode changed
+lyrics_changed = current_lyrics != st.session_state.prev_lyrics
+mode_changed = sync_mode != st.session_state.prev_sync_mode
+
+# Sync if (lyrics changed OR mode changed) AND have section tags
+if (lyrics_changed or mode_changed) and current_lyrics.strip() and "[" in current_lyrics:
+    # Update tracking state
+    st.session_state.prev_sync_mode = sync_mode
+
+    # "Keep structure" mode - don't modify structure at all
+    if sync_mode == "Keep structure":
+        st.session_state.prev_lyrics = current_lyrics
+        if mode_changed:
+            st.toast("Keep structure mode: structure unchanged")
+        # Don't modify sections - lyrics will be mapped at output time
+    else:
+        from generator import parse_lyrics_to_sections, suggest_section_instruments
+        parsed_sections = parse_lyrics_to_sections(current_lyrics)
+
+        if parsed_sections and len(parsed_sections) > 0:
+
+            # "Replace structure" mode - current/legacy behavior
+            if sync_mode == "Replace structure":
+                if st.session_state.get("auto_fill_sections", True):
+                    current_genre = st.session_state.get("genre_select", "default")
+                    current_mood = st.session_state.get("mood_select", "default")
+                    parsed_sections = suggest_section_instruments(
+                        sections=parsed_sections,
+                        genre=current_genre,
+                        mood=current_mood
+                    )
+                st.session_state.sections = parsed_sections
+                st.session_state.prev_lyrics = current_lyrics
+                st.toast(f"Replaced structure with {len(parsed_sections)} sections from lyrics")
+                st.rerun()
+
+            # "Smart merge" mode - keep structure + add missing types
+            elif sync_mode == "Smart merge":
+                current_sections = [s.copy() for s in st.session_state.sections]
+
+                # Get unique section types
+                lyrics_types = set(s['type'].lower() for s in parsed_sections)
+                current_types = set(s['type'].lower() for s in current_sections)
+
+                # Find section types in lyrics but NOT in current structure
+                missing_types = lyrics_types - current_types
+                added_count = 0
+
+                # Add missing types at appropriate positions
+                if missing_types:
+                    for parsed in parsed_sections:
+                        ptype = parsed['type'].lower()
+                        if ptype in missing_types:
+                            # Find best insertion point
+                            insert_idx = _find_insert_position(current_sections, parsed['type'])
+                            new_section = create_section(parsed['type'], parsed.get('instruments', ''))
+                            current_sections.insert(insert_idx, new_section)
+                            missing_types.discard(ptype)
+                            added_count += 1
+
+                # Auto-fill instruments for new sections
+                if added_count > 0 and st.session_state.get("auto_fill_sections", True):
+                    current_genre = st.session_state.get("genre_select", "default")
+                    current_mood = st.session_state.get("mood_select", "default")
+                    current_sections = suggest_section_instruments(
+                        sections=current_sections,
+                        genre=current_genre,
+                        mood=current_mood
+                    )
+
+                st.session_state.sections = current_sections
+                st.session_state.prev_lyrics = current_lyrics
+
+                if added_count > 0:
+                    st.toast(f"Added {added_count} section type(s) from lyrics")
+                st.rerun()
+
+    st.session_state.prev_lyrics = current_lyrics
 
 # Poetic meter reference
 with st.expander("📚 Poetic Meter Reference"):
@@ -481,33 +646,65 @@ with col_batch:
 if generate_clicked or batch_clicked:
     api_key = st.session_state.get("openai_api_key", "")
 
+    # Get current values from widget keys to ensure sync
+    current_genre = st.session_state.get("genre_select", selected_genre)
+    current_key = st.session_state.get("key_select", selected_key)
+    current_mode = st.session_state.get("mode_select", selected_mode)
+    current_tempo = st.session_state.get("tempo_select", selected_tempo)
+    current_time_sig = st.session_state.get("time_sig_select", selected_time_sig)
+    current_mood = st.session_state.get("mood_select", selected_mood)
+    current_is_jazz = current_genre == "Jazz"
+
+    # Get Jazz options from session state (may have been set even if not currently displayed)
+    current_preset = st.session_state.get("style_preset_select", "Smooth Jazz")
+    current_influence = st.session_state.get("style_influence_select", "None")
+    current_progression = st.session_state.get("progression_select", "None")
+    current_harmonic_rhythm = st.session_state.get("harmonic_rhythm_select", "None")
+    current_extensions = st.session_state.get("extensions_select", "None")
+
     # Check if LLM is enabled but no API key
-    if use_llm and is_jazz and not api_key:
+    if use_llm and current_is_jazz and not api_key:
         st.error("OpenAI API key required for LLM generation. Add it in the sidebar or disable LLM mode.")
     else:
         count = batch_count if batch_clicked else 1
 
+        # Rebuild sections from current widget state to ensure sync
+        current_sections = []
+        for section in st.session_state.sections:
+            section_id = section['id']
+            # Get current values from widget keys (most up-to-date)
+            current_type = st.session_state.get(f"section_type_{section_id}", section["type"])
+            current_instr = st.session_state.get(f"section_instr_{section_id}", section.get("instruments", ""))
+            current_sections.append({
+                "id": section_id,
+                "type": current_type,
+                "instruments": current_instr
+            })
+
         for batch_idx in range(count):
             with st.spinner(f"Generating{f' ({batch_idx+1}/{count})' if count > 1 else ''}..."):
                 try:
+                    # Get lyric template from session state
+                    current_lyric_template = st.session_state.get("lyric_template_select", "None")
+
                     result = generate_outputs(
-                        genre=selected_genre,
-                        key=selected_key if selected_key != "None" else "",
-                        mode=selected_mode,
-                        tempo=selected_tempo if selected_tempo != "None" else "",
-                        time_sig=selected_time_sig,
-                        mood=MOOD_VARIATIONS.get(selected_mood, ""),
-                        sections=st.session_state.sections,
+                        genre=current_genre,
+                        key=current_key if current_key != "None" else "",
+                        mode=current_mode,
+                        tempo=current_tempo if current_tempo != "None" else "",
+                        time_sig=current_time_sig,
+                        mood=MOOD_VARIATIONS.get(current_mood, ""),
+                        sections=current_sections,
                         suno_lyrics=suno_lyrics,
-                        lyric_template=selected_lyric_template,
-                        style_preset=selected_preset,
-                        style_influence=selected_influence,
-                        progression=PROGRESSION_TYPES.get(selected_progression, ""),
-                        harmonic_rhythm=HARMONIC_RHYTHM.get(selected_harmonic_rhythm, ""),
-                        extensions=CHORD_EXTENSIONS.get(selected_extensions, ""),
+                        lyric_template=current_lyric_template,
+                        style_preset=current_preset,
+                        style_influence=current_influence,
+                        progression=PROGRESSION_TYPES.get(current_progression, ""),
+                        harmonic_rhythm=HARMONIC_RHYTHM.get(current_harmonic_rhythm, ""),
+                        extensions=CHORD_EXTENSIONS.get(current_extensions, ""),
                         replace_guitar=replace_guitar,
-                        use_llm=use_llm and is_jazz,
-                        api_key=api_key if (use_llm and is_jazz) else None
+                        use_llm=use_llm and current_is_jazz,
+                        api_key=api_key if (use_llm and current_is_jazz) else None
                     )
 
                     # Store in session state

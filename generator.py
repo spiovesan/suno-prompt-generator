@@ -12,6 +12,7 @@ from openai import OpenAI
 from cache import get_cached, set_cached
 from data import (
     STYLE_PRESETS, STYLE_INFLUENCES, AUDIO_QUALITY_TEMPLATE,
+    resolve_preset_value, resolve_influence_value,
     GUITAR_REPLACE_REMOVE, GUITAR_REPLACE_APPEND, LYRIC_TEMPLATES
 )
 
@@ -159,8 +160,32 @@ def generate_outputs(
             if section_style_hints:
                 style_output += ", " + section_style_hints
     else:
-        # Universal mode - use audio quality template
+        # Universal mode - use audio quality template + music foundation hints
         style_output = AUDIO_QUALITY_TEMPLATE.format(genre=genre)
+
+        # Build music foundation hints from selections
+        music_hints = _build_music_foundation_hints(
+            key=key,
+            mode=mode,
+            tempo=tempo,
+            mood=mood,
+            time_sig=time_sig
+        )
+        if music_hints:
+            style_output += ", " + music_hints
+
+        # Add harmony options (these work for all genres)
+        harmony_additions = [progression, harmonic_rhythm, extensions]
+        harmony_additions = [h for h in harmony_additions if h and h != "None" and h.strip()]
+        if harmony_additions:
+            style_output += ", " + ", ".join(harmony_additions)
+
+        # Add style influence if set (using resolved value for genre)
+        if style_influence and style_influence != "None":
+            influence_value = resolve_influence_value(style_influence, genre)
+            if influence_value:
+                style_output += ", " + influence_value
+
         # Append section-based style hints
         if section_style_hints:
             style_output += ", " + section_style_hints
@@ -176,6 +201,17 @@ def generate_outputs(
         suno_lyrics=suno_lyrics,
         lyric_template=lyric_template
     )
+
+    # Truncate style output to stay under 1000 characters
+    MAX_STYLE_LENGTH = 1000
+    if len(style_output) > MAX_STYLE_LENGTH:
+        # Try to truncate at a comma boundary for cleaner output
+        truncated = style_output[:MAX_STYLE_LENGTH]
+        last_comma = truncated.rfind(", ")
+        if last_comma > MAX_STYLE_LENGTH // 2:  # Only if comma is in second half
+            style_output = truncated[:last_comma]
+        else:
+            style_output = truncated.rstrip(", ")
 
     return {
         "style": style_output,
@@ -335,6 +371,47 @@ def _apply_guitar_replacement(prompt: str) -> str:
     return result
 
 
+def _build_music_foundation_hints(
+    key: str = "",
+    mode: str = "",
+    tempo: str = "",
+    mood: str = "",
+    time_sig: str = ""
+) -> str:
+    """
+    Build music foundation hints from user selections for the Style field.
+
+    This ensures the Style output changes when users modify key, mode, tempo,
+    mood, or time signature selections.
+
+    Returns comma-separated hints string.
+    """
+    hints = []
+
+    # Add key signature
+    if key and key != "None":
+        hints.append(f"in {key}")
+
+    # Add mode (extract just the name without parenthetical)
+    if mode and mode != "Ionian (Major)" and mode != "None":
+        mode_name = mode.split(" (")[0] if " (" in mode else mode
+        hints.append(f"{mode_name} mode")
+
+    # Add tempo
+    if tempo and tempo != "None":
+        hints.append(f"{tempo} tempo")
+
+    # Add mood
+    if mood and mood != "None":
+        hints.append(f"{mood} mood")
+
+    # Add time signature if unusual
+    if time_sig and time_sig != "4/4" and time_sig != "None":
+        hints.append(f"{time_sig} time signature")
+
+    return ", ".join(hints) if hints else ""
+
+
 def _extract_section_style_hints(sections: list) -> str:
     """
     Extract style hints from sections to reinforce in the Style field.
@@ -424,6 +501,43 @@ def _extract_section_style_hints(sections: list) -> str:
     return ", ".join(hints) if hints else ""
 
 
+def _get_nearest_section_type(section_type: str, available_types: set) -> str:
+    """
+    Find nearest matching section type for unmapped lyrics.
+
+    CONSERVATIVE: Only maps true synonyms (hook ↔ chorus, refrain ↔ chorus).
+    Sections without direct match or synonym stay INSTRUMENTAL (return None).
+
+    Args:
+        section_type: The section type to find a match for (e.g., "bridge")
+        available_types: Set of section types available in the lyrics
+
+    Returns:
+        The nearest matching section type, or None to stay instrumental
+    """
+    section_type = section_type.lower()
+
+    # If the type is already available, return it directly
+    if section_type in available_types:
+        return section_type
+
+    # ONLY true synonyms - these are essentially the same section type
+    SYNONYMS = {
+        "hook": ["chorus", "refrain"],
+        "refrain": ["chorus", "hook"],
+        "chorus": ["hook", "refrain"],
+    }
+
+    # Only try synonyms - no generic fallbacks
+    if section_type in SYNONYMS:
+        for synonym in SYNONYMS[section_type]:
+            if synonym in available_types:
+                return synonym
+
+    # No match found - section stays INSTRUMENTAL (no lyrics)
+    return None
+
+
 def _parse_suno_lyrics(lyrics_text: str) -> dict:
     """
     Parse Suno lyrics to extract sections and their content.
@@ -468,6 +582,51 @@ def _parse_suno_lyrics(lyrics_text: str) -> dict:
         if section_key not in sections:
             sections[section_key] = []
         sections[section_key].append('\n'.join(current_content).strip())
+
+    return sections
+
+
+def parse_lyrics_to_sections(lyrics_text: str) -> list:
+    """
+    Parse pasted Suno lyrics and return section list for Song Structure.
+
+    This function extracts section tags from pasted lyrics and returns them
+    in a format suitable for the Song Structure editor.
+
+    Args:
+        lyrics_text: Raw pasted lyrics with [SectionType] tags
+
+    Returns:
+        List of section dicts: [{"id": "...", "type": "Verse", "instruments": ""}, ...]
+    """
+    if not lyrics_text or not lyrics_text.strip():
+        return []
+
+    import uuid
+
+    sections = []
+
+    # Match section tags like [Verse], [Chorus], [Verse 2], [Solo: guitar]
+    tag_pattern = re.compile(r'\[([^\]:]+)(?::\s*([^\]]+))?\]', re.IGNORECASE)
+
+    for match in tag_pattern.finditer(lyrics_text):
+        section_type = match.group(1).strip()
+        instruments = match.group(2).strip() if match.group(2) else ""
+
+        # Normalize: "Verse 1" -> "Verse", "CHORUS" -> "Chorus"
+        normalized_type = re.sub(r'\s*\d+$', '', section_type).strip()
+        # Title case: "verse" -> "Verse", "pre-chorus" -> "Pre-Chorus"
+        normalized_type = normalized_type.title()
+
+        # Skip non-section tags like [Style], [End]
+        if normalized_type.lower() in ['style', 'end']:
+            continue
+
+        sections.append({
+            "id": str(uuid.uuid4()),
+            "type": normalized_type,
+            "instruments": instruments
+        })
 
     return sections
 
@@ -525,7 +684,7 @@ def _build_lyrics_output(
         # Try to find matching lyrics for this section type
         section_key = section_type.lower()
         if section_key in parsed_lyrics:
-            # Get the counter for this section type
+            # Direct match - use lyrics for this section type
             counter = section_counters.get(section_key, 0)
             lyrics_list = parsed_lyrics[section_key]
 
@@ -533,9 +692,19 @@ def _build_lyrics_output(
                 # Add the lyrics content
                 lines.append(lyrics_list[counter])
                 section_counters[section_key] = counter + 1
-            elif lyrics_list:
-                # Reuse last lyrics if we have more sections than lyrics
-                lines.append(lyrics_list[-1])
+            # If no more lyrics available for this type, section stays instrumental
+        elif parsed_lyrics:
+            # No direct match - try synonym only (hook ↔ chorus)
+            nearest = _get_nearest_section_type(section_key, set(parsed_lyrics.keys()))
+            if nearest and nearest in parsed_lyrics:
+                # Use lyrics from synonym type
+                counter = section_counters.get(nearest, 0)
+                lyrics_list = parsed_lyrics[nearest]
+                if counter < len(lyrics_list):
+                    lines.append(lyrics_list[counter])
+                    section_counters[nearest] = counter + 1
+                # If no more lyrics available, section stays instrumental
+            # If no synonym found, section stays instrumental (no lyrics added)
 
         lines.append("")  # Empty line between sections
 
@@ -707,8 +876,13 @@ SUNO FORMAT RULES:
 1. Use ONLY standard Suno section tags: [Intro], [Verse], [Chorus], [Pre-Chorus], [Bridge], [Outro], [Hook], [Drop], [Breakdown], [Buildup], [Solo], [Instrumental], [Interlude], [Break]
 2. Never use custom tags like [Opening Field], [Material Field A], [Movement 1] - Suno won't recognize these as sections
 3. A [Style] block at the top is optional but helpful: [Style] (Genre, Key, Tempo)
-4. Parenthetical hints like (soft piano, building intensity) go INSIDE standard sections
-5. Don't have TWO song structures - standard tags + custom tags = confusion
+4. COLON NOTATION is the PREFERRED format for adding instruments/mood to sections:
+   - CORRECT: [Intro: ambient pads, soft piano]
+   - CORRECT: [Verse: acoustic guitar, mellow tone]
+   - CORRECT: [Chorus: full band, high energy]
+   This format puts descriptors INSIDE the brackets after a colon. This is VALID - do NOT flag this as an issue.
+5. Parenthetical hints (soft piano, building intensity) on separate lines inside sections are ALSO valid
+6. Don't have TWO song structures - standard tags + custom tags = confusion
 
 RESPOND WITH JSON ONLY:
 {
