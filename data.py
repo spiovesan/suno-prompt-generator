@@ -164,51 +164,54 @@ STYLE_INFLUENCES = {
 
 def get_genre_preset_names(genre: str) -> dict:
     """
-    Get style preset names adapted to the selected genre.
+    Get style preset names for the selected genre.
 
-    For Jazz, returns original names.
-    For other genres, replaces "Jazz" with the genre name.
-
-    Example: "Smooth Jazz" → "Smooth Ambient" when genre is Ambient
+    For Jazz, returns original names (Smooth Jazz, Bebop, etc.)
+    For other genres, returns simplified generic names (Smooth, Fusion, etc.)
     """
     if genre == "Jazz":
         return STYLE_PRESETS
 
-    adapted = {}
-    for name, value in STYLE_PRESETS.items():
-        # Replace "Jazz" with genre name in preset names
-        if "Jazz" in name:
-            new_name = name.replace("Jazz", genre)
-        else:
-            # For names without "Jazz" (like "Bebop"), append genre
-            new_name = f"{name} {genre}"
-        adapted[new_name] = value
+    # Generic preset names for non-Jazz genres (without genre suffix)
+    generic_presets = {
+        "None": "",
+        "Smooth": "smooth, relaxed, warm tones, gentle dynamics",
+        "Fusion": "fusion elements, complex arrangements, dynamic contrasts",
+        "Modal": "modal harmony, atmospheric, sustained tones, contemplative",
+        "Energetic": "high energy, driving rhythm, powerful dynamics",
+        "Latin": "latin rhythms, syncopated, energetic percussion",
+        "Cool": "cool, mellow, understated, relaxed feel",
+        "Soulful": "soulful, bluesy, expressive, gospel influences",
+        "Angular": "angular, chromatic, adventurous, polyrhythmic",
+        "Groovy": "funky grooves, rhythmic, deep bass",
+        "Ambient": "ambient, spacious, atmospheric, minimal",
+        "Chamber": "chamber music feel, delicate, intimate, acoustic",
+        "Abstract": "abstract, non-traditional, experimental textures",
+        "Radical": "radical, unconventional, challenging, avant-garde",
+    }
 
-    return adapted
+    return generic_presets
 
 
 def resolve_preset_value(preset_name: str, genre: str) -> str:
     """
-    Resolve a preset name to its value, handling genre-adapted names.
+    Resolve a preset name to its value.
 
     Args:
-        preset_name: The display name (may be genre-adapted like "Smooth Rock")
+        preset_name: The display name
         genre: The current genre
 
     Returns:
         The preset value/description
     """
-    # If it's an original preset name, use directly
-    if preset_name in STYLE_PRESETS:
-        return STYLE_PRESETS[preset_name]
+    # Get the presets dict for this genre
+    presets = get_genre_preset_names(genre)
 
-    # Otherwise, get the adapted dict and look up
-    adapted = get_genre_preset_names(genre)
-    if preset_name in adapted:
-        return adapted[preset_name]
+    if preset_name in presets:
+        return presets[preset_name]
 
-    # Fallback to first preset
-    return list(STYLE_PRESETS.values())[0]
+    # Fallback
+    return ""
 
 
 def resolve_influence_value(influence_name: str, genre: str) -> str:

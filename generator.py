@@ -67,6 +67,48 @@ Return ONLY the prompt text, no explanations or formatting. Use comma-separated 
 
 
 # =============================================================================
+# LLM SYSTEM PROMPT (Universal Mode - all genres)
+# =============================================================================
+
+UNIVERSAL_SYSTEM_PROMPT = """You are a Suno AI music prompt specialist. Generate a coherent,
+well-crafted music prompt that combines all the user's selections harmoniously.
+
+## HARD CONSTRAINTS (NEVER VIOLATE):
+- NO NEGATIVE TERMS: Never use "no", "without", "don't" - Suno ignores negatives
+- NO ARTIST NAMES: Never use musician names - Suno blocks these
+- UNDER 200 WORDS: Keep prompts concise
+- COMMA-SEPARATED: Use comma-separated descriptors
+- GENRE-APPROPRIATE: Use instruments and production styles authentic to the genre
+
+## COHERENCE RULES:
+- Match instrumentation to genre (rock = guitars/drums, electronic = synths/beats, etc.)
+- Match mood to dynamics (intimate = soft, energetic = powerful)
+- Match tempo to energy (slow = spacious, fast = driving)
+- Include production quality terms appropriate to the genre
+
+## GENRE GUIDELINES:
+- Rock/Indie: guitars (electric/acoustic), drums, bass, possible keys
+- Electronic/EDM: synths, drum machines, bass drops, builds, effects
+- Pop: polished production, catchy hooks, layered vocals
+- Hip-Hop: beats, 808s, samples, rhythmic flow
+- R&B: smooth production, soulful vocals, groove
+- Ambient: atmospheric textures, pads, reverb, minimal beats
+- Lo-fi: warm, vintage, tape hiss, mellow beats, nostalgic
+- Classical: orchestral instruments, dynamics, movements
+- Folk/Acoustic: acoustic instruments, natural sound, intimate
+
+## PRODUCTION QUALITY:
+Always include some production descriptors:
+- studio quality, well mastered, clean mix (for polished genres)
+- warm, analog, vintage (for lo-fi/retro)
+- crisp, punchy, modern (for electronic/pop)
+- organic, natural, live feel (for acoustic/folk)
+
+## OUTPUT FORMAT:
+Return ONLY the prompt text, no explanations or formatting. Use comma-separated descriptors."""
+
+
+# =============================================================================
 # GENERATION FUNCTIONS
 # =============================================================================
 
@@ -160,35 +202,62 @@ def generate_outputs(
             if section_style_hints:
                 style_output += ", " + section_style_hints
     else:
-        # Universal mode - use audio quality template + music foundation hints
-        style_output = AUDIO_QUALITY_TEMPLATE.format(genre=genre)
+        # Universal mode - all non-Jazz genres
+        if use_llm and api_key:
+            # Use LLM for creative, coherent prompt generation
+            result = _generate_universal_llm(
+                genre=genre,
+                key=key,
+                mode=mode,
+                tempo=tempo,
+                mood=mood,
+                style_preset=style_preset,
+                style_influence=style_influence,
+                sections=sections,
+                api_key=api_key
+            )
+            style_output = result["prompt"]
+            cached = result["cached"]
+        else:
+            # Static template-based generation
+            style_parts = [genre]
 
-        # Build music foundation hints from selections
-        music_hints = _build_music_foundation_hints(
-            key=key,
-            mode=mode,
-            tempo=tempo,
-            mood=mood,
-            time_sig=time_sig
-        )
-        if music_hints:
-            style_output += ", " + music_hints
+            # Add style preset value (the musical description, not just the name)
+            if style_preset and style_preset != "None":
+                preset_value = resolve_preset_value(style_preset, genre)
+                if preset_value:
+                    style_parts.append(preset_value)
 
-        # Add harmony options (these work for all genres)
-        harmony_additions = [progression, harmonic_rhythm, extensions]
-        harmony_additions = [h for h in harmony_additions if h and h != "None" and h.strip()]
-        if harmony_additions:
-            style_output += ", " + ", ".join(harmony_additions)
+            # Add style influence
+            if style_influence and style_influence != "None":
+                influence_value = resolve_influence_value(style_influence, genre)
+                if influence_value:
+                    style_parts.append(influence_value)
 
-        # Add style influence if set (using resolved value for genre)
-        if style_influence and style_influence != "None":
-            influence_value = resolve_influence_value(style_influence, genre)
-            if influence_value:
-                style_output += ", " + influence_value
+            # Add harmony options
+            harmony_additions = [progression, harmonic_rhythm, extensions]
+            harmony_additions = [h for h in harmony_additions if h and h != "None" and h.strip()]
+            style_parts.extend(harmony_additions)
 
-        # Append section-based style hints
-        if section_style_hints:
-            style_output += ", " + section_style_hints
+            # Add music foundation hints
+            music_hints = _build_music_foundation_hints(
+                key=key,
+                mode=mode,
+                tempo=tempo,
+                mood=mood,
+                time_sig=time_sig
+            )
+            if music_hints:
+                style_parts.append(music_hints)
+
+            # Append section-based style hints
+            if section_style_hints:
+                style_parts.append(section_style_hints)
+
+            # Add abbreviated audio quality at the end (not the full verbose template)
+            style_parts.append("studio quality, well mastered, clean mix, warm presence, crisp highs")
+
+            style_output = ", ".join(style_parts)
 
     # Build LYRICS output
     lyrics_output = _build_lyrics_output(
@@ -356,6 +425,94 @@ def _build_llm_message(selections: dict) -> str:
         return "Generate a default smooth jazz quartet prompt with guitar lead and [complex chord progression]"
 
     return "Generate a Suno prompt for:\n" + "\n".join(parts)
+
+
+def _generate_universal_llm(
+    genre: str,
+    key: str,
+    mode: str,
+    tempo: str,
+    mood: str,
+    style_preset: str,
+    style_influence: str,
+    sections: list,
+    api_key: str
+) -> dict:
+    """Generate prompt for any genre using LLM."""
+    # Extract section hints for LLM context
+    section_hints = _extract_section_style_hints(sections)
+
+    # Build selections dict for cache key
+    selections = {
+        "genre": genre,
+        "key_signature": key,
+        "mode": mode,
+        "tempo": tempo,
+        "mood": mood,
+        "style_preset": style_preset,
+        "style_influence": style_influence,
+        "section_hints": section_hints
+    }
+
+    # Create cache key (include "universal" to avoid collisions with jazz cache)
+    cache_key = "universal_" + hashlib.md5(json.dumps(selections, sort_keys=True).encode()).hexdigest()
+
+    # Check cache
+    cached = get_cached(cache_key)
+    if cached:
+        return {"prompt": cached, "cached": True}
+
+    # Build user message
+    user_msg = _build_universal_llm_message(selections)
+
+    client = OpenAI(api_key=api_key)
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": UNIVERSAL_SYSTEM_PROMPT},
+            {"role": "user", "content": user_msg}
+        ],
+        max_tokens=500,
+        temperature=0.7
+    )
+
+    prompt = response.choices[0].message.content.strip()
+
+    # Cache result
+    set_cached(cache_key, prompt)
+
+    return {"prompt": prompt, "cached": False}
+
+
+def _build_universal_llm_message(selections: dict) -> str:
+    """Build the user message for universal LLM from selections."""
+    parts = []
+
+    # Genre is always included
+    parts.append(f"Genre: {selections['genre']}")
+
+    if selections.get("style_preset") and selections["style_preset"] != "None":
+        parts.append(f"Style preset: {selections['style_preset']}")
+
+    if selections.get("key_signature") and selections["key_signature"] != "None":
+        parts.append(f"Key: {selections['key_signature']}")
+
+    if selections.get("mode") and selections["mode"] != "None" and selections["mode"] != "Ionian (Major)":
+        parts.append(f"Mode: {selections['mode']}")
+
+    if selections.get("style_influence") and selections["style_influence"] != "None":
+        parts.append(f"Influence: {selections['style_influence']}")
+
+    if selections.get("tempo") and selections["tempo"] != "None":
+        parts.append(f"Tempo: {selections['tempo']}")
+
+    if selections.get("mood") and selections["mood"] != "None":
+        parts.append(f"Mood: {selections['mood']}")
+
+    if selections.get("section_hints"):
+        parts.append(f"Song features: {selections['section_hints']} (include these characteristics in prompt)")
+
+    return "Generate a Suno music prompt for:\n" + "\n".join(parts)
 
 
 def _apply_guitar_replacement(prompt: str) -> str:
@@ -543,45 +700,37 @@ def _parse_suno_lyrics(lyrics_text: str) -> dict:
     Parse Suno lyrics to extract sections and their content.
 
     Returns a dict mapping section types (lowercase) to their lyrics content.
-    Example: {"verse": "lyrics here...", "chorus": "chorus lyrics..."}
+    Example: {"verse": ["lyrics here..."], "chorus": ["chorus lyrics..."]}
     """
     if not lyrics_text or not lyrics_text.strip():
         return {}
 
     sections = {}
-    current_section = None
-    current_content = []
 
-    # Regex to match section tags like [Verse], [Chorus], [Verse 1], etc.
-    section_pattern = re.compile(r'^\[([^\]:]+)(?::[^\]]+)?\]', re.IGNORECASE)
+    # Use regex to find all section tags and split the text
+    # This handles both newline-separated and inline tags
+    section_pattern = re.compile(r'\[([^\]:]+)(?::[^\]]+)?\]', re.IGNORECASE)
 
-    for line in lyrics_text.strip().split('\n'):
-        line_stripped = line.strip()
-        match = section_pattern.match(line_stripped)
+    # Find all matches with their positions
+    matches = list(section_pattern.finditer(lyrics_text))
 
-        if match:
-            # Save previous section if any
-            if current_section and current_content:
-                # Normalize section name (remove numbers, lowercase)
-                section_key = re.sub(r'\s*\d+$', '', current_section).lower().strip()
-                if section_key not in sections:
-                    sections[section_key] = []
-                sections[section_key].append('\n'.join(current_content).strip())
+    if not matches:
+        return {}
 
-            # Start new section
-            current_section = match.group(1).strip()
-            current_content = []
-        elif current_section:
-            # Add line to current section (preserve non-empty lines)
-            if line_stripped or current_content:  # Keep empty lines within content
-                current_content.append(line)
+    for i, match in enumerate(matches):
+        section_name = match.group(1).strip()
+        # Normalize section name (remove numbers, lowercase)
+        section_key = re.sub(r'\s*\d+$', '', section_name).lower().strip()
 
-    # Save last section
-    if current_section and current_content:
-        section_key = re.sub(r'\s*\d+$', '', current_section).lower().strip()
-        if section_key not in sections:
-            sections[section_key] = []
-        sections[section_key].append('\n'.join(current_content).strip())
+        # Get content between this tag and the next (or end of text)
+        start = match.end()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(lyrics_text)
+        content = lyrics_text[start:end].strip()
+
+        if content:
+            if section_key not in sections:
+                sections[section_key] = []
+            sections[section_key].append(content)
 
     return sections
 

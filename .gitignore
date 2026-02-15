@@ -19,6 +19,7 @@ __pycache__/
 
 # Local data
 songs_history.json
+.log
 
 # Environment variables
 .env
@@ -30,3 +31,4 @@ Thumbs.db
 
 # Claude plans
 .claude/
+.log

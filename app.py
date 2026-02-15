@@ -227,6 +227,18 @@ with col1:
     )
     is_jazz = selected_genre == "Jazz"
 
+    # Track genre changes and reset Options to avoid stale session state
+    prev_genre = st.session_state.get("_prev_genre", None)
+    if prev_genre is not None and prev_genre != selected_genre:
+        # Genre changed - clear stale Options session state and force rerun
+        # This forces selectboxes to re-render with new options
+        for key in ["style_preset_select", "style_influence_select"]:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.session_state["_prev_genre"] = selected_genre
+        st.rerun()  # Force fresh render with new widget options
+    st.session_state["_prev_genre"] = selected_genre
+
 with col2:
     # Key selection (combined major/minor)
     all_keys = {"None": ""} | MAJOR_KEYS | MINOR_KEYS
@@ -239,6 +251,17 @@ with col2:
     )
     if selected_key != "None":
         st.caption(f"_{all_keys[selected_key]}_")
+
+    # Track key quality changes and reset mode to avoid stale session state
+    current_is_major = selected_key in MAJOR_KEYS if selected_key != "None" else None
+    prev_is_major = st.session_state.get("_prev_is_major", None)
+    if prev_is_major is not None and prev_is_major != current_is_major:
+        # Key quality changed - clear stale mode session state and force rerun
+        if "mode_select" in st.session_state:
+            del st.session_state["mode_select"]
+        st.session_state["_prev_is_major"] = current_is_major
+        st.rerun()  # Force fresh render with new mode options
+    st.session_state["_prev_is_major"] = current_is_major
 
 with col3:
     # Filter modes based on key quality (major vs minor)
@@ -646,24 +669,30 @@ with col_batch:
 if generate_clicked or batch_clicked:
     api_key = st.session_state.get("openai_api_key", "")
 
-    # Get current values from widget keys to ensure sync
-    current_genre = st.session_state.get("genre_select", selected_genre)
-    current_key = st.session_state.get("key_select", selected_key)
-    current_mode = st.session_state.get("mode_select", selected_mode)
-    current_tempo = st.session_state.get("tempo_select", selected_tempo)
-    current_time_sig = st.session_state.get("time_sig_select", selected_time_sig)
-    current_mood = st.session_state.get("mood_select", selected_mood)
+    # Read values directly from widget return values (captured when widgets rendered)
+    # These are guaranteed to match what's displayed in the UI
+    current_genre = selected_genre
+    current_key = selected_key
+    current_mode = selected_mode
+    current_tempo = selected_tempo
+    current_time_sig = selected_time_sig
+    current_mood = selected_mood
     current_is_jazz = current_genre == "Jazz"
 
-    # Get Jazz options from session state (may have been set even if not currently displayed)
-    current_preset = st.session_state.get("style_preset_select", "Smooth Jazz")
-    current_influence = st.session_state.get("style_influence_select", "None")
-    current_progression = st.session_state.get("progression_select", "None")
-    current_harmonic_rhythm = st.session_state.get("harmonic_rhythm_select", "None")
-    current_extensions = st.session_state.get("extensions_select", "None")
+    # Read Options from widget return values
+    current_preset = selected_preset
+    current_influence = selected_influence
+    current_progression = selected_progression
+    current_harmonic_rhythm = selected_harmonic_rhythm
+    current_extensions = selected_extensions
+
+    # Clear any previous results to force fresh display
+    for key in ["generated_style", "generated_lyrics", "batch_results"]:
+        if key in st.session_state:
+            del st.session_state[key]
 
     # Check if LLM is enabled but no API key
-    if use_llm and current_is_jazz and not api_key:
+    if use_llm and not api_key:
         st.error("OpenAI API key required for LLM generation. Add it in the sidebar or disable LLM mode.")
     else:
         count = batch_count if batch_clicked else 1
@@ -684,8 +713,9 @@ if generate_clicked or batch_clicked:
         for batch_idx in range(count):
             with st.spinner(f"Generating{f' ({batch_idx+1}/{count})' if count > 1 else ''}..."):
                 try:
-                    # Get lyric template from session state
-                    current_lyric_template = st.session_state.get("lyric_template_select", "None")
+                    # Use widget return values directly
+                    current_lyric_template = selected_lyric_template
+                    current_suno_lyrics = suno_lyrics  # Widget return value from text_area
 
                     result = generate_outputs(
                         genre=current_genre,
@@ -695,7 +725,7 @@ if generate_clicked or batch_clicked:
                         time_sig=current_time_sig,
                         mood=MOOD_VARIATIONS.get(current_mood, ""),
                         sections=current_sections,
-                        suno_lyrics=suno_lyrics,
+                        suno_lyrics=current_suno_lyrics,
                         lyric_template=current_lyric_template,
                         style_preset=current_preset,
                         style_influence=current_influence,
@@ -703,8 +733,8 @@ if generate_clicked or batch_clicked:
                         harmonic_rhythm=HARMONIC_RHYTHM.get(current_harmonic_rhythm, ""),
                         extensions=CHORD_EXTENSIONS.get(current_extensions, ""),
                         replace_guitar=replace_guitar,
-                        use_llm=use_llm and current_is_jazz,
-                        api_key=api_key if (use_llm and current_is_jazz) else None
+                        use_llm=use_llm,
+                        api_key=api_key if use_llm else None
                     )
 
                     # Store in session state
@@ -712,6 +742,7 @@ if generate_clicked or batch_clicked:
                         st.session_state.generated_style = result["style"]
                         st.session_state.generated_lyrics = result["lyrics"]
                         st.session_state.was_cached = result.get("cached", False)
+                        st.toast(f"✅ Generated for {current_genre}" + (f" - {current_preset}" if current_preset != "None" else ""))
                     else:
                         # For batch, append to list
                         if "batch_results" not in st.session_state:
@@ -736,22 +767,22 @@ if "generated_style" in st.session_state:
     with col_style:
         st.subheader("Style Field")
         st.caption("Paste into Suno's **Style** box")
+        # No key parameter - ensures value always reflects current session state
         st.text_area(
             "Style output",
             value=st.session_state.generated_style,
             height=400,
-            key="style_output_display",
             label_visibility="collapsed"
         )
 
     with col_lyrics:
         st.subheader("Lyrics Field")
         st.caption("Paste into Suno's **Lyrics** box")
+        # No key parameter - ensures value always reflects current session state
         st.text_area(
             "Lyrics output",
             value=st.session_state.generated_lyrics,
             height=400,
-            key="lyrics_output_display",
             label_visibility="collapsed"
         )
 
