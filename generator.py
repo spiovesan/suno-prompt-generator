@@ -213,6 +213,9 @@ def generate_outputs(
                 mood=mood,
                 style_preset=style_preset,
                 style_influence=style_influence,
+                progression=progression,
+                harmonic_rhythm=harmonic_rhythm,
+                extensions=extensions,
                 sections=sections,
                 api_key=api_key
             )
@@ -435,6 +438,9 @@ def _generate_universal_llm(
     mood: str,
     style_preset: str,
     style_influence: str,
+    progression: str,
+    harmonic_rhythm: str,
+    extensions: str,
     sections: list,
     api_key: str
 ) -> dict:
@@ -451,6 +457,9 @@ def _generate_universal_llm(
         "mood": mood,
         "style_preset": style_preset,
         "style_influence": style_influence,
+        "progression": progression,
+        "harmonic_rhythm": harmonic_rhythm,
+        "extensions": extensions,
         "section_hints": section_hints
     }
 
@@ -508,6 +517,16 @@ def _build_universal_llm_message(selections: dict) -> str:
 
     if selections.get("mood") and selections["mood"] != "None":
         parts.append(f"Mood: {selections['mood']}")
+
+    # Harmony options
+    if selections.get("progression") and selections["progression"] != "None" and selections["progression"].strip():
+        parts.append(f"Chord progression: {selections['progression']}")
+
+    if selections.get("harmonic_rhythm") and selections["harmonic_rhythm"] != "None" and selections["harmonic_rhythm"].strip():
+        parts.append(f"Harmonic rhythm: {selections['harmonic_rhythm']}")
+
+    if selections.get("extensions") and selections["extensions"] != "None" and selections["extensions"].strip():
+        parts.append(f"Chord extensions: {selections['extensions']}")
 
     if selections.get("section_hints"):
         parts.append(f"Song features: {selections['section_hints']} (include these characteristics in prompt)")
@@ -1260,16 +1279,15 @@ def suggest_section_instruments(
 
 
 def _suggest_sections_local(sections: list, genre: str, mood: str) -> list:
-    """Fill sections using local mapping from data.py."""
-    from data import get_section_instruments
-
+    """Fill sections using local mapping, with mood-awareness to avoid conflicts."""
     filled = []
     for section in sections:
         new_section = section.copy()
         # Only fill if instruments field is empty
         if not section.get("instruments"):
-            new_section["instruments"] = get_section_instruments(
-                genre, section["type"], mood if mood and mood != "None" else "default"
+            # Use mood-appropriate instruments (handles calm moods specially)
+            new_section["instruments"] = get_mood_appropriate_instruments(
+                section["type"], genre, mood if mood and mood != "None" else "default"
             )
         filled.append(new_section)
     return filled
@@ -1364,3 +1382,188 @@ Respond in this exact format (one line per section):
     except Exception:
         # Fall back to local generation
         return _suggest_sections_local(sections, genre, mood)
+
+
+# =============================================================================
+# SECTION/MOOD CONFLICT DETECTION
+# =============================================================================
+
+# Define terms that conflict with specific moods
+MOOD_CONFLICT_TERMS = {
+    "Intimate": {
+        "conflicts": ["high energy", "full band", "powerful", "aggressive", "massive", "heavy", "loud", "explosive", "intense drums", "wall of sound", "shredding"],
+        "suggest": "layered textures, gentle dynamics, soft pulse, intimate atmosphere"
+    },
+    "Mellow": {
+        "conflicts": ["high energy", "aggressive", "powerful", "heavy", "loud", "explosive", "driving", "intense", "massive", "shredding", "full band"],
+        "suggest": "warm textures, relaxed groove, gentle rhythm, soft layers"
+    },
+    "Contemplative": {
+        "conflicts": ["high energy", "aggressive", "explosive", "loud", "heavy", "massive", "full band", "driving", "intense"],
+        "suggest": "spacious atmosphere, thoughtful progression, minimal texture, reflective"
+    },
+    "Serene": {
+        "conflicts": ["high energy", "aggressive", "heavy", "loud", "explosive", "intense", "driving", "massive", "full band", "powerful drums"],
+        "suggest": "flowing textures, gentle pulse, ambient layers, peaceful atmosphere"
+    },
+    "Dark": {
+        "conflicts": ["bright", "happy", "cheerful", "uplifting", "sunny"],
+        "suggest": "shadowy textures, minor harmonies, brooding atmosphere, mysterious"
+    },
+    "Energetic": {
+        "conflicts": ["mellow", "soft", "quiet", "gentle", "fading", "ambient pads", "minimal"],
+        "suggest": "driving rhythm, dynamic textures, powerful momentum, building energy"
+    },
+}
+
+# Define terms that conflict with specific genres
+GENRE_CONFLICT_TERMS = {
+    "Meditation": {
+        "conflicts": ["full band", "high energy", "aggressive", "loud", "heavy drums", "electric guitar", "distortion", "powerful"],
+        "suggest": "ambient pads, soft tones, gentle, peaceful, minimal"
+    },
+    "Ambient": {
+        "conflicts": ["full band", "high energy", "aggressive", "drums", "heavy", "loud", "distortion"],
+        "suggest": "atmospheric, pads, textures, spacious, minimal"
+    },
+    "Classical": {
+        "conflicts": ["synth", "808s", "beats", "electronic", "distortion", "wah"],
+        "suggest": "orchestral, strings, dynamics, acoustic"
+    },
+    "Lo-fi": {
+        "conflicts": ["aggressive", "loud", "heavy", "distortion", "shredding", "powerful"],
+        "suggest": "warm, dusty, mellow, vinyl, tape"
+    },
+    "Metal": {
+        "conflicts": ["soft", "gentle", "ambient pads", "peaceful", "mellow", "quiet"],
+        "suggest": "heavy, aggressive, distorted, powerful, intense"
+    },
+    "EDM": {
+        "conflicts": ["acoustic guitar", "orchestral", "strings", "piano ballad"],
+        "suggest": "synths, drops, builds, electronic beats"
+    },
+}
+
+
+def detect_section_conflicts(
+    sections: list,
+    genre: str,
+    mood: str
+) -> list:
+    """
+    Detect conflicts between section instruments and the selected mood/genre.
+
+    Args:
+        sections: List of section dicts with "type" and "instruments"
+        genre: Selected genre
+        mood: Selected mood
+
+    Returns:
+        List of warning dicts with "section", "conflict", and "suggestion"
+    """
+    warnings = []
+
+    # Get conflict terms for the current mood and genre
+    mood_conflicts = MOOD_CONFLICT_TERMS.get(mood, {})
+    genre_conflicts = GENRE_CONFLICT_TERMS.get(genre, {})
+
+    for section in sections:
+        section_type = section.get("type", "")
+        instruments = section.get("instruments", "").lower()
+
+        if not instruments:
+            continue
+
+        # Check mood conflicts
+        if mood_conflicts:
+            for conflict_term in mood_conflicts.get("conflicts", []):
+                if conflict_term.lower() in instruments:
+                    warnings.append({
+                        "section": section_type,
+                        "conflict": f'"{conflict_term}" conflicts with {mood} mood',
+                        "suggestion": mood_conflicts.get("suggest", ""),
+                        "type": "mood"
+                    })
+                    break  # One warning per section
+
+        # Check genre conflicts
+        if genre_conflicts:
+            for conflict_term in genre_conflicts.get("conflicts", []):
+                if conflict_term.lower() in instruments:
+                    # Don't duplicate if already warned for mood
+                    already_warned = any(w["section"] == section_type for w in warnings)
+                    if not already_warned:
+                        warnings.append({
+                            "section": section_type,
+                            "conflict": f'"{conflict_term}" conflicts with {genre} genre',
+                            "suggestion": genre_conflicts.get("suggest", ""),
+                            "type": "genre"
+                        })
+                        break
+
+    return warnings
+
+
+def get_mood_appropriate_instruments(section_type: str, genre: str, mood: str) -> str:
+    """
+    Get mood-appropriate instruments for a section, overriding defaults when needed.
+
+    Args:
+        section_type: The section type (Intro, Verse, Chorus, etc.)
+        genre: The music genre
+        mood: The mood (Intimate, Mellow, Serene, etc.)
+
+    Returns:
+        String with mood-appropriate instrument suggestions
+    """
+    # Special handling for calming moods - avoid high-energy terms
+    calm_moods = ["Intimate", "Mellow", "Contemplative", "Serene"]
+
+    if mood in calm_moods:
+        # Override with mood-appropriate instruments
+        calm_instruments = {
+            "Intro": {
+                "Intimate": "soft ambient pads, gentle piano, whispered textures",
+                "Mellow": "warm pads, soft keys, gentle atmosphere",
+                "Contemplative": "spacious piano, minimal texture, reflective",
+                "Serene": "ethereal pads, distant chimes, peaceful tones",
+            },
+            "Verse": {
+                "Intimate": "delicate acoustic guitar, soft voice, gentle dynamics",
+                "Mellow": "warm guitar, soft accompaniment, relaxed feel",
+                "Contemplative": "thoughtful melody, minimal backing, space",
+                "Serene": "flowing melody, gentle strings, calm progression",
+            },
+            "Chorus": {
+                "Intimate": "layered harmonies, soft dynamics, emotional peak",
+                "Mellow": "warm build, gentle crescendo, soft fullness",
+                "Contemplative": "expanded texture, still restrained, meaningful",
+                "Serene": "flowing harmonies, gentle swells, peaceful climax",
+            },
+            "Buildup": {
+                "Intimate": "complex rhythmic textures, driving bass pulse, layered atmosphere",
+                "Mellow": "gentle momentum, layered arpeggios, warm bass pulse",
+                "Contemplative": "rising harmonic tension, expanding textures, purposeful motion",
+                "Serene": "swelling pads, rhythmic pulse, transcendent building",
+            },
+            "Bridge": {
+                "Intimate": "stripped back, vulnerable, single instrument",
+                "Mellow": "different texture, still relaxed, contrast",
+                "Contemplative": "deeper reflection, minimal, searching",
+                "Serene": "transition, flowing, gentle shift",
+            },
+            "Outro": {
+                "Intimate": "fading softly, final whisper, gentle close",
+                "Mellow": "warm fade, gentle resolution, peaceful end",
+                "Contemplative": "dissolving, unresolved, open ending",
+                "Serene": "peaceful fade, serene close, tranquil finish",
+            },
+        }
+
+        section_map = calm_instruments.get(section_type, {})
+        if mood in section_map:
+            return section_map[mood]
+
+    # Fall back to data.py function
+    from data import get_section_instruments
+    return get_section_instruments(genre, section_type, mood if mood and mood != "None" else "default")

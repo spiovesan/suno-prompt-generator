@@ -67,3 +67,30 @@ def export_history_csv() -> str:
         lines.append(f'"{title}","{timestamp}","{genre}","{style}...","{lyrics}..."')
 
     return "\n".join(lines)
+
+
+# =============================================================================
+# WORKING SESSION PERSISTENCE (F5 recovery)
+# =============================================================================
+
+WORKING_SESSION_FILE = Path(__file__).parent / "working_session.json"
+
+
+def save_working_session(state: dict):
+    """Save current working state for F5 recovery."""
+    with open(WORKING_SESSION_FILE, "w") as f:
+        json.dump(state, f, indent=2)
+
+
+def load_working_session() -> dict | None:
+    """Load working session if exists."""
+    if WORKING_SESSION_FILE.exists():
+        with open(WORKING_SESSION_FILE, "r") as f:
+            return json.load(f)
+    return None
+
+
+def clear_working_session():
+    """Clear working session file."""
+    if WORKING_SESSION_FILE.exists():
+        WORKING_SESSION_FILE.unlink()

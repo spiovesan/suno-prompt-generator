@@ -1,0 +1,60 @@
+{
+  "genre": "Lo-fi",
+  "key": "C# Minor",
+  "mode": "Dorian",
+  "tempo": "Mid-tempo (80-110 BPM)",
+  "time_sig": "4/4",
+  "mood": "Mellow",
+  "style_preset": "Modal",
+  "style_influence": "World Fusion",
+  "progression": "Complex Jazz",
+  "harmonic_rhythm": "None",
+  "extensions": "7th Chords",
+  "sections": [
+    {
+      "id": 23,
+      "type": "Intro",
+      "instruments": "ambient pads, soft piano"
+    },
+    {
+      "id": 24,
+      "type": "Verse",
+      "instruments": "acoustic guitar, mellow tone"
+    },
+    {
+      "id": 25,
+      "type": "Verse",
+      "instruments": "full band, high energy"
+    },
+    {
+      "id": 1,
+      "type": "Chorus",
+      "instruments": "warm build, gentle crescendo, soft fullness"
+    },
+    {
+      "id": 26,
+      "type": "Bridge",
+      "instruments": "synth arpeggios, rising tension"
+    },
+    {
+      "id": 27,
+      "type": "Verse",
+      "instruments": "fade out, ambient"
+    },
+    {
+      "id": 28,
+      "type": "Outro",
+      "instruments": "Fading choral voices, soft rain sounds, distant ocean waves"
+    }
+  ],
+  "use_llm": true,
+  "replace_guitar": false,
+  "auto_fill_sections": true,
+  "lyrics_sync_mode": "Smart merge",
+  "suno_lyrics": "[Verse]\nMeet me in the heart of the forest\nMake a bed of moss on the floor\nShow me where the grass grows tallest\nWhere the greenest leaves are born\nAs long as there are flowers\nI'll stay\nWith you in this quiet place\nTake me back to my roots\nThen I'll take care of you\nThe way I do\n\u00a0\n[Chorus]\nWhen the sun turns the river gold\nAnd you need somewhere safe to go\nCall my name\nAnd I'll take you home\n'Cause you will always be mine to hold\nSo say my name\nAnd I'll take you home\nWhen you need somewhere safe to go\nCall my name\nAnd I'll take you home\n'Cause you will always be mine to hold\nSo say my name\nAnd I'll take you home\n",
+  "lyric_template": "None",
+  "generated_style": "Lo-fi, modal, C# minor, Dorian mode, mid-tempo 90 BPM, mellow and relaxed atmosphere, smooth tone, complex chord progression with jazz influences, extended harmonies, seventh chords, maj7 and min7 voicings, warm vintage textures, mellow beats, nostalgic vibe, organic sound, subtle background samples, ambient world fusion elements, soothing instrumental layers.",
+  "generated_lyrics": "[Style] (Lo-fi, C# Minor, Dorian, Mid-tempo (80-110 BPM))\n\n[Intro: ambient pads, soft piano]\n\n[Verse: acoustic guitar, mellow tone]\nMeet me in the heart of the forest\nMake a bed of moss on the floor\nShow me where the grass grows tallest\nWhere the greenest leaves are born\nAs long as there are flowers\nI'll stay\nWith you in this quiet place\nTake me back to my roots\nThen I'll take care of you\nThe way I do\n\n[Verse: full band, high energy]\n\n[Chorus: warm build, gentle crescendo, soft fullness]\nWhen the sun turns the river gold\nAnd you need somewhere safe to go\nCall my name\nAnd I'll take you home\n'Cause you will always be mine to hold\nSo say my name\nAnd I'll take you home\nWhen you need somewhere safe to go\nCall my name\nAnd I'll take you home\n'Cause you will always be mine to hold\nSo say my name\nAnd I'll take you home\n\n[Bridge: synth arpeggios, rising tension]\n\n[Verse: fade out, ambient]\n\n[Outro: Fading choral voices, soft rain sounds, distant ocean waves]",
+  "refined_style": "",
+  "refined_lyrics": ""
+}

@@ -17,10 +17,13 @@ from data import (
 )
 from generator import (
     generate_outputs, validate_lyrics_format, validate_lyrics_with_llm,
-    suggest_song_title, suggest_section_instruments
+    suggest_song_title, suggest_section_instruments, detect_section_conflicts
 )
 from refiner import run_refinement_agent
-from storage import load_history, save_song, delete_song, export_history_csv
+from storage import (
+    load_history, save_song, delete_song, export_history_csv,
+    load_working_session, save_working_session, clear_working_session
+)
 
 # =============================================================================
 # PAGE CONFIG
@@ -34,6 +37,65 @@ st.set_page_config(
 
 st.title("🎵 Suno Prompt Studio")
 st.caption("Generate Style and Lyrics fields for Suno AI music generation")
+
+# =============================================================================
+# RESTORE WORKING SESSION ON STARTUP
+# =============================================================================
+
+if "_session_loaded" not in st.session_state:
+    working = load_working_session()
+    if working:
+        # Restore genre index
+        if "genre" in working and working["genre"] in GENRES:
+            st.session_state["loaded_genre_idx"] = GENRES.index(working["genre"])
+
+        # Restore selectbox values directly
+        direct_keys = {
+            "key": "key_select",
+            "mode": "mode_select",
+            "tempo": "tempo_select",
+            "time_sig": "time_sig_select",
+            "mood": "mood_select",
+            "style_preset": "style_preset_select",
+            "style_influence": "style_influence_select",
+            "progression": "progression_select",
+            "harmonic_rhythm": "harmonic_rhythm_select",
+            "extensions": "extensions_select",
+            "lyric_template": "lyric_template_select",
+        }
+        for setting_key, widget_key in direct_keys.items():
+            if setting_key in working and working[setting_key]:
+                st.session_state[widget_key] = working[setting_key]
+
+        # Restore lyrics sync mode
+        if "lyrics_sync_mode" in working:
+            st.session_state["lyrics_sync_mode"] = working["lyrics_sync_mode"]
+
+        # Restore sections
+        if "sections" in working:
+            st.session_state.sections = working["sections"]
+
+        # Restore lyrics text
+        if "suno_lyrics" in working:
+            st.session_state["suno_lyrics_input"] = working["suno_lyrics"]
+            st.session_state["loaded_lyrics"] = working["suno_lyrics"]
+
+        # Restore sidebar toggles (use flags for widgets to pick up)
+        for key in ["use_llm", "replace_guitar", "auto_fill_sections"]:
+            if key in working:
+                st.session_state[f"_loaded_{key}"] = working[key]
+
+        # Restore generated outputs
+        if working.get("generated_style"):
+            st.session_state.generated_style = working["generated_style"]
+        if working.get("generated_lyrics"):
+            st.session_state.generated_lyrics = working["generated_lyrics"]
+        if working.get("refined_style"):
+            st.session_state.refined_style = working["refined_style"]
+        if working.get("refined_lyrics"):
+            st.session_state.refined_lyrics = working["refined_lyrics"]
+
+    st.session_state["_session_loaded"] = True
 
 # =============================================================================
 # SIDEBAR
@@ -57,21 +119,21 @@ with st.sidebar:
     st.subheader("Generation Mode")
     use_llm = st.toggle(
         "Use LLM Generation",
-        value=False,
+        value=st.session_state.pop("_loaded_use_llm", False),
         help="Use AI to generate coherent style prompts. Requires API key."
     )
 
     # Replace guitar stem option
     replace_guitar = st.checkbox(
         "Replace Guitar Stem",
-        value=False,
+        value=st.session_state.pop("_loaded_replace_guitar", False),
         help="Force guitar as sole melodic voice (for replacing guitar track later)"
     )
 
     # Auto-fill sections toggle
     auto_fill_sections = st.checkbox(
         "Auto-fill section instruments",
-        value=True,
+        value=st.session_state.pop("_loaded_auto_fill_sections", True),
         help="Automatically suggest instruments when loading presets (uses AI if API key provided)"
     )
 
@@ -122,6 +184,17 @@ with st.sidebar:
             )
     else:
         st.caption("No saved songs yet")
+
+    st.divider()
+
+    # New Session button
+    if st.button("🆕 New Session", use_container_width=True, help="Clear all settings and start fresh"):
+        clear_working_session()
+        # Clear all session state except system keys
+        for key in list(st.session_state.keys()):
+            if not key.startswith("_"):
+                del st.session_state[key]
+        st.rerun()
 
     st.divider()
 
@@ -205,9 +278,52 @@ else:
 # Load song if selected from history
 if "loaded_song" in st.session_state:
     loaded = st.session_state.pop("loaded_song")
-    # Set session state values that will be picked up by widgets
-    for key, value in loaded.items():
-        st.session_state[f"loaded_{key}"] = value
+
+    # Restore genre index
+    if "genre" in loaded and loaded["genre"] in GENRES:
+        st.session_state["loaded_genre_idx"] = GENRES.index(loaded["genre"])
+
+    # Restore selectbox values directly
+    direct_keys = {
+        "key": "key_select",
+        "mode": "mode_select",
+        "tempo": "tempo_select",
+        "time_sig": "time_sig_select",
+        "mood": "mood_select",
+        "style_preset": "style_preset_select",
+        "style_influence": "style_influence_select",
+        "progression": "progression_select",
+        "harmonic_rhythm": "harmonic_rhythm_select",
+        "extensions": "extensions_select",
+        "lyric_template": "lyric_template_select",
+    }
+    for setting_key, widget_key in direct_keys.items():
+        if setting_key in loaded and loaded[setting_key]:
+            st.session_state[widget_key] = loaded[setting_key]
+
+    # Restore lyrics sync mode
+    if "lyrics_sync_mode" in loaded:
+        st.session_state["lyrics_sync_mode"] = loaded["lyrics_sync_mode"]
+
+    # Restore sections
+    if "sections" in loaded:
+        st.session_state.sections = loaded["sections"]
+
+    # Restore lyrics text
+    if "suno_lyrics" in loaded:
+        st.session_state["suno_lyrics_input"] = loaded["suno_lyrics"]
+        st.session_state["loaded_lyrics"] = loaded["suno_lyrics"]
+
+    # Restore sidebar toggles (use flags for widgets to pick up)
+    for key in ["use_llm", "replace_guitar", "auto_fill_sections"]:
+        if key in loaded:
+            st.session_state[f"_loaded_{key}"] = loaded[key]
+
+    # Restore generated outputs from song history
+    if "loaded_style" in st.session_state:
+        st.session_state.generated_style = st.session_state.pop("loaded_style")
+    if "loaded_lyrics" in st.session_state:
+        st.session_state.generated_lyrics = st.session_state.pop("loaded_lyrics")
 
 # =============================================================================
 # MUSIC FOUNDATION
@@ -523,6 +639,31 @@ if sections_to_remove:
     for i in sorted(sections_to_remove, reverse=True):
         st.session_state.sections.pop(i)
     st.rerun()
+
+# Detect and display section/mood conflicts
+conflicts = detect_section_conflicts(
+    sections=st.session_state.sections,
+    genre=selected_genre,
+    mood=selected_mood
+)
+
+if conflicts:
+    with st.expander(f"⚠️ {len(conflicts)} Section Conflict(s) Detected", expanded=True):
+        st.caption("These section instruments may conflict with your selected mood/genre:")
+        for conflict in conflicts:
+            col_warn, col_fix = st.columns([4, 1])
+            with col_warn:
+                st.warning(f"**{conflict['section']}**: {conflict['conflict']}")
+                st.caption(f"💡 Suggested: _{conflict['suggestion']}_")
+            with col_fix:
+                # Quick fix button
+                if st.button("Fix", key=f"fix_{conflict['section']}_{conflict['type']}", help="Replace with suggested instruments"):
+                    # Find and update the section
+                    for i, section in enumerate(st.session_state.sections):
+                        if section["type"] == conflict["section"]:
+                            st.session_state.sections[i]["instruments"] = conflict["suggestion"]
+                            break
+                    st.rerun()
 
 # =============================================================================
 # LYRICS
@@ -994,23 +1135,36 @@ if "generated_style" in st.session_state:
     with col_save:
         if st.button("Save", use_container_width=True):
             if song_title:
+                # Capture ALL state for complete restoration
                 settings = {
+                    # Music Foundation
                     "genre": selected_genre,
                     "key": selected_key,
                     "mode": selected_mode,
                     "tempo": selected_tempo,
                     "time_sig": selected_time_sig,
                     "mood": selected_mood,
+
+                    # Options (for all genres)
+                    "style_preset": selected_preset,
+                    "style_influence": selected_influence,
+                    "progression": selected_progression,
+                    "harmonic_rhythm": selected_harmonic_rhythm,
+                    "extensions": selected_extensions,
+
+                    # Song Structure
                     "sections": st.session_state.sections,
+
+                    # Sidebar options
+                    "use_llm": use_llm,
+                    "replace_guitar": replace_guitar,
+                    "auto_fill_sections": auto_fill_sections,
+                    "lyrics_sync_mode": st.session_state.get("lyrics_sync_mode", "Smart merge"),
+
+                    # Lyrics content
+                    "suno_lyrics": suno_lyrics,
+                    "lyric_template": selected_lyric_template,
                 }
-                if is_jazz:
-                    settings.update({
-                        "style_preset": selected_preset,
-                        "style_influence": selected_influence,
-                        "progression": selected_progression,
-                        "harmonic_rhythm": selected_harmonic_rhythm,
-                        "extensions": selected_extensions,
-                    })
 
                 # Use refined outputs if available
                 style_to_save = st.session_state.get("refined_style", st.session_state.generated_style)
@@ -1021,3 +1175,47 @@ if "generated_style" in st.session_state:
                 st.rerun()
             else:
                 st.warning("Enter a title to save")
+
+# =============================================================================
+# AUTO-SAVE WORKING SESSION
+# =============================================================================
+
+# Build complete working state from all current widget values
+_working_state = {
+    # Music Foundation
+    "genre": selected_genre,
+    "key": selected_key,
+    "mode": selected_mode,
+    "tempo": selected_tempo,
+    "time_sig": selected_time_sig,
+    "mood": selected_mood,
+
+    # Options
+    "style_preset": selected_preset,
+    "style_influence": selected_influence,
+    "progression": selected_progression,
+    "harmonic_rhythm": selected_harmonic_rhythm,
+    "extensions": selected_extensions,
+
+    # Song Structure
+    "sections": st.session_state.sections,
+
+    # Sidebar options
+    "use_llm": use_llm,
+    "replace_guitar": replace_guitar,
+    "auto_fill_sections": auto_fill_sections,
+    "lyrics_sync_mode": st.session_state.get("lyrics_sync_mode", "Smart merge"),
+
+    # Lyrics
+    "suno_lyrics": suno_lyrics,
+    "lyric_template": selected_lyric_template,
+
+    # Generated outputs (if any)
+    "generated_style": st.session_state.get("generated_style", ""),
+    "generated_lyrics": st.session_state.get("generated_lyrics", ""),
+    "refined_style": st.session_state.get("refined_style", ""),
+    "refined_lyrics": st.session_state.get("refined_lyrics", ""),
+}
+
+# Save working session (auto-save on every render)
+save_working_session(_working_state)
