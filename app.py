@@ -1,29 +1,38 @@
 """
-Suno Prompt Studio - Unified Streamlit App.
-Generate Style and Lyrics fields for Suno AI music generation.
-
-Run with: streamlit run app.py
+Suno Prompt Studio — Main Streamlit Application.
+Generates Style and Lyrics fields for Suno AI music generation.
+Supports Jazz-specific features, universal genres, and Developer Focus mode.
 """
 
-import os
+import uuid
 import streamlit as st
-from streamlit_sortables import sort_items
 from data import (
-    GENRES, MAJOR_KEYS, MINOR_KEYS, MODES, TIME_SIGNATURES,
-    TEMPO_RANGES, MOOD_VARIATIONS, SECTION_TYPES, DEFAULT_SECTIONS,
-    STYLE_PRESETS, STYLE_INFLUENCES, PROGRESSION_TYPES,
-    HARMONIC_RHYTHM, CHORD_EXTENSIONS, LYRIC_TEMPLATES, POETIC_METERS,
-    get_modes_for_key_quality, get_genre_preset_names, get_genre_influence_names
+    GENRES, STYLE_PRESETS, STYLE_INFLUENCES,
+    NOTE_NAMES, KEY_QUALITIES, MODES,
+    TIME_SIGNATURES,
+    TEMPO_VARIATIONS, MOOD_VARIATIONS, INTRO_VARIATIONS,
+    PROGRESSION_TYPES, HARMONIC_RHYTHM, CHORD_EXTENSIONS,
+    SECTION_TYPES, DEFAULT_SECTIONS, LYRIC_TEMPLATES,
+    get_genre_preset_names, get_genre_influence_names,
+    get_modes_for_quality, resolve_key_value,
+)
+from profiles import (
+    PROFILES, ACTIVE_PROFILES, DEV_STYLE_PRESETS, DEV_SCENARIOS,
+    TECH_STACK_TAGS,
+    get_profile_defaults, get_dev_preset_names, get_dev_scenario_names, get_dev_scenario,
 )
 from generator import (
-    generate_outputs, validate_lyrics_format, validate_lyrics_with_llm,
-    suggest_song_title, suggest_section_instruments, detect_section_conflicts
+    generate_outputs, suggest_song_title,
+    suggest_section_instruments, detect_section_conflicts,
+    validate_lyrics_format, parse_lyrics_to_sections,
 )
 from refiner import run_refinement_agent
+from iterative_refiner import generate_suggestions, apply_suggestions
 from storage import (
     load_history, save_song, delete_song, export_history_csv,
-    load_working_session, save_working_session, clear_working_session
+    save_working_session, load_working_session,
 )
+
 
 # =============================================================================
 # PAGE CONFIG
@@ -32,70 +41,89 @@ from storage import (
 st.set_page_config(
     page_title="Suno Prompt Studio",
     page_icon="🎵",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
 
-st.title("🎵 Suno Prompt Studio")
-st.caption("Generate Style and Lyrics fields for Suno AI music generation")
+st.title("Suno Prompt Studio")
+st.caption("Generate Style and Lyrics fields for Suno AI")
+
 
 # =============================================================================
-# RESTORE WORKING SESSION ON STARTUP
+# SESSION STATE INITIALIZATION
 # =============================================================================
 
-if "_session_loaded" not in st.session_state:
-    working = load_working_session()
-    if working:
-        # Restore genre index
-        if "genre" in working and working["genre"] in GENRES:
-            st.session_state["loaded_genre_idx"] = GENRES.index(working["genre"])
+def init_session_state():
+    """Initialize session state with defaults, restoring from working session if available."""
+    defaults = {
+        "profile": "General Purpose",
+        "genre": "Jazz",
+        "key": "None",
+        "key_quality": "Major",
+        "mode": "Ionian (Major)",
+        "tempo": "None",
+        "time_sig": "4/4",
+        "mood": "None",
+        "style_preset": "Smooth Jazz",
+        "style_influence": "None",
+        "progression": "None",
+        "harmonic_rhythm": "None",
+        "extensions": "None",
+        "lyric_template": "None",
+        "suno_lyrics": "",
+        "replace_guitar": False,
+        "use_llm": False,
+        "api_key": "",
+        "tech_context": "",
+        "dev_scenario": "None",
+        "sections": [
+            {"id": str(uuid.uuid4()), "type": "Intro", "instruments": ""},
+            {"id": str(uuid.uuid4()), "type": "Verse", "instruments": ""},
+            {"id": str(uuid.uuid4()), "type": "Chorus", "instruments": ""},
+            {"id": str(uuid.uuid4()), "type": "Bridge", "instruments": ""},
+            {"id": str(uuid.uuid4()), "type": "Outro", "instruments": ""},
+        ],
+        "style_output": "",
+        "lyrics_output": "",
+        "iter_versions": [],
+        "iter_suggestions": [],
+        "iter_active": False,
+        "_initialized": False,
+    }
 
-        # Restore selectbox values directly
-        direct_keys = {
-            "key": "key_select",
-            "mode": "mode_select",
-            "tempo": "tempo_select",
-            "time_sig": "time_sig_select",
-            "mood": "mood_select",
-            "style_preset": "style_preset_select",
-            "style_influence": "style_influence_select",
-            "progression": "progression_select",
-            "harmonic_rhythm": "harmonic_rhythm_select",
-            "extensions": "extensions_select",
-            "lyric_template": "lyric_template_select",
-        }
-        for setting_key, widget_key in direct_keys.items():
-            if setting_key in working and working[setting_key]:
-                st.session_state[widget_key] = working[setting_key]
+    # Set defaults for missing keys
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
 
-        # Restore lyrics sync mode
-        if "lyrics_sync_mode" in working:
-            st.session_state["lyrics_sync_mode"] = working["lyrics_sync_mode"]
+    # Restore from working session on first load
+    if not st.session_state._initialized:
+        saved = load_working_session()
+        if saved:
+            for key, value in saved.items():
+                if key in defaults and key != "_initialized":
+                    st.session_state[key] = value
+        st.session_state._initialized = True
 
-        # Restore sections
-        if "sections" in working:
-            st.session_state.sections = working["sections"]
 
-        # Restore lyrics text
-        if "suno_lyrics" in working:
-            st.session_state["suno_lyrics_input"] = working["suno_lyrics"]
-            st.session_state["loaded_lyrics"] = working["suno_lyrics"]
+init_session_state()
 
-        # Restore sidebar toggles (use flags for widgets to pick up)
-        for key in ["use_llm", "replace_guitar", "auto_fill_sections"]:
-            if key in working:
-                st.session_state[f"_loaded_{key}"] = working[key]
 
-        # Restore generated outputs
-        if working.get("generated_style"):
-            st.session_state.generated_style = working["generated_style"]
-        if working.get("generated_lyrics"):
-            st.session_state.generated_lyrics = working["generated_lyrics"]
-        if working.get("refined_style"):
-            st.session_state.refined_style = working["refined_style"]
-        if working.get("refined_lyrics"):
-            st.session_state.refined_lyrics = working["refined_lyrics"]
+def save_current_session():
+    """Save current state for F5 recovery."""
+    state = {}
+    save_keys = [
+        "profile", "genre", "key", "key_quality", "mode", "tempo", "time_sig", "mood",
+        "style_preset", "style_influence", "progression", "harmonic_rhythm",
+        "extensions", "lyric_template", "suno_lyrics", "replace_guitar",
+        "use_llm", "tech_context", "dev_scenario", "sections",
+        "style_output", "lyrics_output",
+    ]
+    for k in save_keys:
+        if k in st.session_state:
+            state[k] = st.session_state[k]
+    save_working_session(state)
 
-    st.session_state["_session_loaded"] = True
 
 # =============================================================================
 # SIDEBAR
@@ -104,693 +132,477 @@ if "_session_loaded" not in st.session_state:
 with st.sidebar:
     st.header("Settings")
 
-    # API Key input
-    api_key_input = st.text_input(
+    # API Key
+    api_key = st.text_input(
         "OpenAI API Key",
-        value=os.environ.get("OPENAI_API_KEY", ""),
+        value=st.session_state.api_key,
         type="password",
-        help="Required for LLM generation and AI refinement. Set OPENAI_API_KEY env var to pre-fill."
+        help="Required for LLM generation and AI refinement",
+        key="w_api_key",
     )
-    st.session_state["openai_api_key"] = api_key_input
+    if api_key != st.session_state.api_key:
+        st.session_state.api_key = api_key
 
     st.divider()
 
-    # Generation mode
-    st.subheader("Generation Mode")
-    use_llm = st.toggle(
-        "Use LLM Generation",
-        value=st.session_state.pop("_loaded_use_llm", False),
-        help="Use AI to generate coherent style prompts. Requires API key."
+    # Generation Mode
+    use_llm = st.checkbox(
+        "LLM Generation",
+        value=st.session_state.use_llm,
+        help="Use AI for creative, coherent prompt generation (requires API key)",
+        key="w_use_llm",
     )
+    if use_llm != st.session_state.use_llm:
+        st.session_state.use_llm = use_llm
 
-    # Replace guitar stem option
+    # Replace Guitar Stem
     replace_guitar = st.checkbox(
         "Replace Guitar Stem",
-        value=st.session_state.pop("_loaded_replace_guitar", False),
-        help="Force guitar as sole melodic voice (for replacing guitar track later)"
+        value=st.session_state.replace_guitar,
+        help="Ensures guitar is always the primary melodic voice for stem replacement",
+        key="w_replace_guitar",
     )
-
-    # Auto-fill sections toggle
-    auto_fill_sections = st.checkbox(
-        "Auto-fill section instruments",
-        value=st.session_state.pop("_loaded_auto_fill_sections", True),
-        help="Automatically suggest instruments when loading presets (uses AI if API key provided)"
-    )
-
-    # Lyrics sync mode
-    st.selectbox(
-        "Lyrics sync mode",
-        options=["Smart merge", "Replace structure", "Keep structure"],
-        index=0,
-        key="lyrics_sync_mode",
-        help="""
-        • Smart merge: Keep preset + add missing section types from lyrics
-        • Replace structure: Lyrics completely replace song structure
-        • Keep structure: Never modify structure, just map lyrics at output
-        """
-    )
+    if replace_guitar != st.session_state.replace_guitar:
+        st.session_state.replace_guitar = replace_guitar
 
     st.divider()
 
     # Song History
-    st.header("📁 Song History")
+    st.subheader("Song History")
     history = load_history()
     if history:
         for i, song in enumerate(reversed(history)):
             idx = len(history) - 1 - i
-            col_title, col_del = st.columns([4, 1])
-            with col_title:
-                if st.button(song.get("title", f"Song {idx+1}"), key=f"load_{idx}", use_container_width=True):
-                    # Load song settings
+            with st.expander(f"{song.get('title', 'Untitled')} — {song.get('timestamp', '')[:10]}"):
+                st.text(song.get("style_output", "")[:200] + "...")
+                col_load, col_del = st.columns(2)
+                if col_load.button("Load", key=f"load_{idx}"):
                     settings = song.get("settings", {})
-                    st.session_state["loaded_song"] = settings
-                    st.session_state["loaded_style"] = song.get("style_output", song.get("prompt", ""))
-                    st.session_state["loaded_lyrics"] = song.get("lyrics_output", song.get("lyrics", ""))
+                    for k, v in settings.items():
+                        if k in st.session_state:
+                            st.session_state[k] = v
+                    st.session_state.style_output = song.get("style_output", "")
+                    st.session_state.lyrics_output = song.get("lyrics_output", "")
                     st.rerun()
-            with col_del:
-                if st.button("✕", key=f"del_hist_{idx}"):
+                if col_del.button("Delete", key=f"del_{idx}"):
                     delete_song(idx)
                     st.rerun()
 
-        # Export CSV
-        csv_data = export_history_csv()
-        if csv_data:
-            st.download_button(
-                "📤 Export CSV",
-                csv_data,
-                "suno_history.csv",
-                "text/csv",
-                use_container_width=True
-            )
+        csv = export_history_csv()
+        if csv:
+            st.download_button("Export CSV", csv, "suno_history.csv", "text/csv")
     else:
-        st.caption("No saved songs yet")
+        st.caption("No songs saved yet.")
 
-    st.divider()
 
-    # New Session button
-    if st.button("🆕 New Session", use_container_width=True, help="Clear all settings and start fresh"):
-        clear_working_session()
-        # Clear all session state except system keys
-        for key in list(st.session_state.keys()):
-            if not key.startswith("_"):
-                del st.session_state[key]
+# =============================================================================
+# PROFILE SELECTOR
+# =============================================================================
+
+profile_options = PROFILES
+profile_idx = profile_options.index(st.session_state.profile) if st.session_state.profile in profile_options else 0
+
+profile = st.selectbox(
+    "Profile",
+    profile_options,
+    index=profile_idx,
+    format_func=lambda x: f"{x} (coming soon)" if x not in ACTIVE_PROFILES else x,
+    key="w_profile",
+)
+
+# Handle profile change
+if profile != st.session_state.profile:
+    if profile in ACTIVE_PROFILES:
+        st.session_state.profile = profile
+        defaults = get_profile_defaults(profile)
+        if defaults:
+            for k, v in defaults.items():
+                st.session_state[k] = v
         st.rerun()
+    else:
+        st.warning(f"{profile} is coming soon!")
+        st.session_state.profile = st.session_state.profile  # revert
 
-    st.divider()
-
-    st.header("About")
-    st.markdown("""
-    This tool generates **two outputs** for Suno:
-
-    1. **Style Field**: Audio quality / style prompt
-    2. **Lyrics Field**: Meta tags + structure + lyrics
-
-    ### How to use:
-    1. Select your genre and music settings
-    2. Build your song structure with sections
-    3. Optionally paste Suno lyrics or use a template
-    4. Click Generate
-    5. (Optional) Click Refine to improve with AI
-    6. Copy each output to Suno
-    """)
 
 # =============================================================================
-# INITIALIZE SESSION STATE
+# DEVELOPER FOCUS MODE
 # =============================================================================
 
-# Section ID counter for unique identification
-if "section_id_counter" not in st.session_state:
-    st.session_state.section_id_counter = 0
+is_dev_focus = st.session_state.profile == "Developer Focus"
 
-def create_section(section_type: str, instruments: str = "") -> dict:
-    """Create a new section with a unique ID."""
-    st.session_state.section_id_counter += 1
-    return {
-        "id": st.session_state.section_id_counter,
-        "type": section_type,
-        "instruments": instruments
-    }
+if is_dev_focus:
+    st.markdown(
+        """<div style="background-color: #2d1b69; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+        <strong style="color: #b39ddb;">Developer Focus Mode</strong>
+        <span style="color: #ce93d8;"> — Background music optimized for coding sessions</span>
+        </div>""",
+        unsafe_allow_html=True,
+    )
 
+    # Scenario selector
+    scenario_names = ["None"] + get_dev_scenario_names()
+    scenario_idx = scenario_names.index(st.session_state.dev_scenario) if st.session_state.dev_scenario in scenario_names else 0
 
-def _find_insert_position(sections: list, new_type: str) -> int:
-    """Find best position to insert a new section type based on typical song structure."""
-    new_type_lower = new_type.lower()
+    dev_scenario = st.selectbox(
+        "Developer Scenario",
+        scenario_names,
+        index=scenario_idx,
+        help="Pre-configured settings for specific coding activities",
+        key="w_dev_scenario",
+    )
 
-    # Section type ordering preference (typical song structure)
-    TYPE_ORDER = [
-        "intro", "verse", "pre-chorus", "chorus", "post-chorus",
-        "bridge", "breakdown", "buildup", "drop", "solo",
-        "interlude", "outro"
-    ]
+    if dev_scenario != st.session_state.dev_scenario:
+        st.session_state.dev_scenario = dev_scenario
+        if dev_scenario != "None":
+            scenario = get_dev_scenario(dev_scenario)
+            if scenario:
+                if "genre" in scenario:
+                    st.session_state.genre = scenario["genre"]
+                if "tempo" in scenario:
+                    st.session_state.tempo = scenario["tempo"]
+                if "mood" in scenario:
+                    st.session_state.mood = scenario["mood"]
+                if "style_preset" in scenario:
+                    st.session_state.style_preset = scenario["style_preset"]
+                if "sections" in scenario:
+                    st.session_state.sections = [
+                        {"id": str(uuid.uuid4()), "type": s["type"], "instruments": s.get("instruments", "")}
+                        for s in scenario["sections"]
+                    ]
+                st.rerun()
 
-    try:
-        new_order = TYPE_ORDER.index(new_type_lower)
-    except ValueError:
-        return len(sections)  # Unknown type goes at end
+    # Tech context
+    tech_context = st.text_input(
+        "Tech Context",
+        value=st.session_state.tech_context,
+        placeholder="e.g., Python, PyTorch, debugging ML pipeline",
+        help="Subtly influences the mood when using LLM generation",
+        key="w_tech_context",
+    )
+    if tech_context != st.session_state.tech_context:
+        st.session_state.tech_context = tech_context
 
-    # Find first section that should come after new_type
-    for i, s in enumerate(sections):
-        try:
-            existing_order = TYPE_ORDER.index(s['type'].lower())
-            if existing_order > new_order:
-                return i
-        except ValueError:
-            continue
+    # Tech stack tags
+    with st.expander("Quick Tech Tags"):
+        tag_cols = st.columns(6)
+        for i, tag in enumerate(TECH_STACK_TAGS):
+            col = tag_cols[i % 6]
+            if col.button(tag, key=f"tag_{tag}", use_container_width=True):
+                current = st.session_state.tech_context
+                if tag not in current:
+                    st.session_state.tech_context = (current + ", " + tag).strip(", ")
+                    st.rerun()
 
-    return len(sections)  # Add at end if no suitable position
-
-
-if "sections" not in st.session_state:
-    st.session_state.sections = [
-        create_section("Intro", "ambient pads, soft piano"),
-        create_section("Verse", "acoustic guitar, mellow tone"),
-        create_section("Chorus", "full band, high energy"),
-        create_section("Bridge", "synth arpeggios, rising tension"),
-        create_section("Outro", "fade out, ambient"),
-    ]
-else:
-    # Ensure all sections have IDs (migration for existing sessions)
-    for section in st.session_state.sections:
-        if "id" not in section:
-            st.session_state.section_id_counter += 1
-            section["id"] = st.session_state.section_id_counter
-
-# Load song if selected from history
-if "loaded_song" in st.session_state:
-    loaded = st.session_state.pop("loaded_song")
-
-    # Restore genre index
-    if "genre" in loaded and loaded["genre"] in GENRES:
-        st.session_state["loaded_genre_idx"] = GENRES.index(loaded["genre"])
-
-    # Restore selectbox values directly
-    direct_keys = {
-        "key": "key_select",
-        "mode": "mode_select",
-        "tempo": "tempo_select",
-        "time_sig": "time_sig_select",
-        "mood": "mood_select",
-        "style_preset": "style_preset_select",
-        "style_influence": "style_influence_select",
-        "progression": "progression_select",
-        "harmonic_rhythm": "harmonic_rhythm_select",
-        "extensions": "extensions_select",
-        "lyric_template": "lyric_template_select",
-    }
-    for setting_key, widget_key in direct_keys.items():
-        if setting_key in loaded and loaded[setting_key]:
-            st.session_state[widget_key] = loaded[setting_key]
-
-    # Restore lyrics sync mode
-    if "lyrics_sync_mode" in loaded:
-        st.session_state["lyrics_sync_mode"] = loaded["lyrics_sync_mode"]
-
-    # Restore sections
-    if "sections" in loaded:
-        st.session_state.sections = loaded["sections"]
-
-    # Restore lyrics text
-    if "suno_lyrics" in loaded:
-        st.session_state["suno_lyrics_input"] = loaded["suno_lyrics"]
-        st.session_state["loaded_lyrics"] = loaded["suno_lyrics"]
-
-    # Restore sidebar toggles (use flags for widgets to pick up)
-    for key in ["use_llm", "replace_guitar", "auto_fill_sections"]:
-        if key in loaded:
-            st.session_state[f"_loaded_{key}"] = loaded[key]
-
-    # Restore generated outputs from song history
-    if "loaded_style" in st.session_state:
-        st.session_state.generated_style = st.session_state.pop("loaded_style")
-    if "loaded_lyrics" in st.session_state:
-        st.session_state.generated_lyrics = st.session_state.pop("loaded_lyrics")
 
 # =============================================================================
 # MUSIC FOUNDATION
 # =============================================================================
 
-st.header("🎹 Music Foundation")
+st.header("Music Foundation")
+
+is_jazz = st.session_state.genre == "Jazz"
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    selected_genre = st.selectbox(
-        "Genre",
-        options=GENRES,
-        index=st.session_state.get("loaded_genre_idx", 0),
-        key="genre_select",
-        help="Primary genre - Jazz enables jazz-specific options"
-    )
-    is_jazz = selected_genre == "Jazz"
+    genre_idx = GENRES.index(st.session_state.genre) if st.session_state.genre in GENRES else 0
+    genre = st.selectbox("Genre", GENRES, index=genre_idx, key="w_genre")
 
-    # Track genre changes and reset Options to avoid stale session state
-    prev_genre = st.session_state.get("_prev_genre", None)
-    if prev_genre is not None and prev_genre != selected_genre:
-        # Genre changed - clear stale Options session state and force rerun
-        # This forces selectboxes to re-render with new options
-        for key in ["style_preset_select", "style_influence_select"]:
-            if key in st.session_state:
-                del st.session_state[key]
-        st.session_state["_prev_genre"] = selected_genre
-        st.rerun()  # Force fresh render with new widget options
-    st.session_state["_prev_genre"] = selected_genre
+    if genre != st.session_state.genre:
+        st.session_state.genre = genre
+        # Reset genre-specific options
+        st.session_state.style_preset = "Smooth Jazz" if genre == "Jazz" else "None"
+        st.session_state.style_influence = "None"
+        st.rerun()
+
+    # Key (note name)
+    note_idx = NOTE_NAMES.index(st.session_state.key) if st.session_state.key in NOTE_NAMES else 0
+    key = st.selectbox("Key", NOTE_NAMES, index=note_idx, key="w_key")
+    if key != st.session_state.key:
+        st.session_state.key = key
+
+    # Key Quality (Major / Minor / Minor Maj7)
+    q_idx = KEY_QUALITIES.index(st.session_state.key_quality) if st.session_state.key_quality in KEY_QUALITIES else 0
+    quality = st.selectbox("Quality", KEY_QUALITIES, index=q_idx, key="w_key_quality")
+    if quality != st.session_state.key_quality:
+        st.session_state.key_quality = quality
+        # Reset mode when quality changes
+        st.session_state.mode = "None"
+        st.rerun()
 
 with col2:
-    # Key selection (combined major/minor)
-    all_keys = {"None": ""} | MAJOR_KEYS | MINOR_KEYS
-    selected_key = st.selectbox(
-        "Key",
-        options=list(all_keys.keys()),
-        index=0,
-        key="key_select",
-        help="The tonal center of your song"
-    )
-    if selected_key != "None":
-        st.caption(f"_{all_keys[selected_key]}_")
+    # Mode — filtered by key quality, disabled for Minor Maj7
+    available_modes = get_modes_for_quality(st.session_state.key_quality)
+    mode_names = list(available_modes.keys()) if available_modes else []
 
-    # Track key quality changes and reset mode to avoid stale session state
-    current_is_major = selected_key in MAJOR_KEYS if selected_key != "None" else None
-    prev_is_major = st.session_state.get("_prev_is_major", None)
-    if prev_is_major is not None and prev_is_major != current_is_major:
-        # Key quality changed - clear stale mode session state and force rerun
-        if "mode_select" in st.session_state:
-            del st.session_state["mode_select"]
-        st.session_state["_prev_is_major"] = current_is_major
-        st.rerun()  # Force fresh render with new mode options
-    st.session_state["_prev_is_major"] = current_is_major
+    if not mode_names:
+        # Minor Maj7 — no mode selection
+        st.selectbox("Mode", ["(fixed by quality)"], disabled=True, key="w_mode_disabled")
+        if st.session_state.mode != "None":
+            st.session_state.mode = "None"
+    else:
+        mode_idx = mode_names.index(st.session_state.mode) if st.session_state.mode in mode_names else 0
+        mode = st.selectbox("Mode", mode_names, index=mode_idx, key="w_mode")
+        if mode != st.session_state.mode:
+            st.session_state.mode = mode
+
+    # Tempo
+    if is_jazz:
+        tempo_names = list(TEMPO_VARIATIONS.keys())
+    else:
+        tempo_names = ["None", "Slow (60-80 BPM)", "Mid-tempo (80-110 BPM)",
+                       "Uptempo (110-130 BPM)", "Fast (130+ BPM)"]
+    tempo_idx = tempo_names.index(st.session_state.tempo) if st.session_state.tempo in tempo_names else 0
+    tempo = st.selectbox("Tempo", tempo_names, index=tempo_idx, key="w_tempo")
+    if tempo != st.session_state.tempo:
+        st.session_state.tempo = tempo
 
 with col3:
-    # Filter modes based on key quality (major vs minor)
-    if selected_key != "None":
-        is_major_key = selected_key in MAJOR_KEYS
-        available_modes = get_modes_for_key_quality(is_major_key)
+    # Time Signature
+    ts_idx = TIME_SIGNATURES.index(st.session_state.time_sig) if st.session_state.time_sig in TIME_SIGNATURES else 0
+    time_sig = st.selectbox("Time Signature", TIME_SIGNATURES, index=ts_idx, key="w_time_sig")
+    if time_sig != st.session_state.time_sig:
+        st.session_state.time_sig = time_sig
+
+    # Mood
+    mood_names = list(MOOD_VARIATIONS.keys())
+    mood_idx = mood_names.index(st.session_state.mood) if st.session_state.mood in mood_names else 0
+    mood = st.selectbox("Mood", mood_names, index=mood_idx, key="w_mood")
+    if mood != st.session_state.mood:
+        st.session_state.mood = mood
+
+
+# =============================================================================
+# STYLE OPTIONS
+# =============================================================================
+
+st.header("Style Options")
+
+opt_col1, opt_col2 = st.columns(2)
+
+with opt_col1:
+    # Style Preset (genre-specific or developer-specific)
+    if is_dev_focus:
+        preset_dict = get_dev_preset_names()
     else:
-        available_modes = list(MODES.keys())  # Show all if no key selected
+        preset_dict = get_genre_preset_names(st.session_state.genre)
 
-    selected_mode = st.selectbox(
-        "Mode",
-        options=available_modes,
-        index=0,
-        key="mode_select",
-        help="Modal flavor that affects emotional color"
-    )
-    mode_info = MODES[selected_mode]
-    st.caption(f"_{mode_info['mood']}_")
-
-col4, col5, col6 = st.columns(3)
-
-with col4:
-    selected_time_sig = st.selectbox(
-        "Time Signature",
-        options=list(TIME_SIGNATURES.keys()),
-        index=0,
-        key="time_sig_select",
-        help="Beat grouping that defines the groove"
-    )
-    st.caption(f"_{TIME_SIGNATURES[selected_time_sig]}_")
-
-with col5:
-    selected_tempo = st.selectbox(
-        "Tempo",
-        options=list(TEMPO_RANGES.keys()),
-        index=2,  # Default to Mid-tempo
-        key="tempo_select",
-        help="Speed and energy of the song"
-    )
-    if selected_tempo != "None":
-        st.caption(f"_{TEMPO_RANGES[selected_tempo]}_")
-
-with col6:
-    selected_mood = st.selectbox(
-        "Mood",
-        options=list(MOOD_VARIATIONS.keys()),
-        index=0,
-        key="mood_select",
-        help="Overall atmosphere and feel"
-    )
-    if selected_mood != "None":
-        st.caption(f"_{MOOD_VARIATIONS[selected_mood]}_")
-
-# =============================================================================
-# OPTIONS (Style Presets and Harmony)
-# =============================================================================
-
-st.divider()
-st.header("🎛️ Options")
-
-col_j1, col_j2 = st.columns(2)
-
-with col_j1:
-    # Dynamic Style Preset names based on genre
-    preset_names = get_genre_preset_names(selected_genre)
-    selected_preset = st.selectbox(
+    preset_names = list(preset_dict.keys())
+    preset_idx = preset_names.index(st.session_state.style_preset) if st.session_state.style_preset in preset_names else 0
+    style_preset = st.selectbox(
         "Style Preset",
-        options=list(preset_names.keys()),
-        index=0,
-        key="style_preset_select",
-        help="Base style template adapted to your genre"
+        preset_names,
+        index=preset_idx,
+        help="Prescriptive style foundation — detailed instrument roles and tones",
+        key="w_style_preset",
     )
+    if style_preset != st.session_state.style_preset:
+        st.session_state.style_preset = style_preset
 
-with col_j2:
-    # Dynamic Style Influence names based on genre
-    influence_names = get_genre_influence_names(selected_genre)
-    selected_influence = st.selectbox(
+    # Show preset preview
+    if style_preset and style_preset != "None":
+        preview = preset_dict.get(style_preset, "")
+        if preview:
+            st.caption(f"Preview: {preview[:120]}...")
+
+with opt_col2:
+    # Style Influence
+    influence_dict = get_genre_influence_names(st.session_state.genre)
+    influence_names = list(influence_dict.keys())
+    influence_idx = influence_names.index(st.session_state.style_influence) if st.session_state.style_influence in influence_names else 0
+    style_influence = st.selectbox(
         "Style Influence",
-        options=list(influence_names.keys()),
-        index=0,
-        key="style_influence_select",
-        help="Era or style influence to blend in"
+        influence_names,
+        index=influence_idx,
+        help="Era/style reference that colors the output",
+        key="w_style_influence",
     )
+    if style_influence != st.session_state.style_influence:
+        st.session_state.style_influence = style_influence
 
-# Harmony options
-st.subheader("🎼 Harmony")
-col_h1, col_h2, col_h3 = st.columns(3)
 
-with col_h1:
-    selected_progression = st.selectbox(
-        "Chord Progression",
-        options=list(PROGRESSION_TYPES.keys()),
-        index=0,
-        key="progression_select",
-        help="Type of chord movement"
-    )
+# Jazz/Harmony options (shown for Jazz and optionally for other genres)
+if is_jazz or st.session_state.genre in ["Classical", "Blues", "Soul", "Funk", "R&B"]:
+    st.subheader("Harmony Options")
+    harm_col1, harm_col2, harm_col3 = st.columns(3)
 
-with col_h2:
-    selected_harmonic_rhythm = st.selectbox(
-        "Harmonic Rhythm",
-        options=list(HARMONIC_RHYTHM.keys()),
-        index=0,
-        key="harmonic_rhythm_select",
-        help="How often chords change"
-    )
+    with harm_col1:
+        prog_names = list(PROGRESSION_TYPES.keys())
+        prog_idx = prog_names.index(st.session_state.progression) if st.session_state.progression in prog_names else 0
+        progression = st.selectbox("Chord Progression", prog_names, index=prog_idx, key="w_progression")
+        if progression != st.session_state.progression:
+            st.session_state.progression = progression
 
-with col_h3:
-    selected_extensions = st.selectbox(
-        "Chord Extensions",
-        options=list(CHORD_EXTENSIONS.keys()),
-        index=0,
-        key="extensions_select",
-        help="Chord voicing complexity"
-    )
+    with harm_col2:
+        hr_names = list(HARMONIC_RHYTHM.keys())
+        hr_idx = hr_names.index(st.session_state.harmonic_rhythm) if st.session_state.harmonic_rhythm in hr_names else 0
+        harmonic_rhythm = st.selectbox("Harmonic Rhythm", hr_names, index=hr_idx, key="w_harmonic_rhythm")
+        if harmonic_rhythm != st.session_state.harmonic_rhythm:
+            st.session_state.harmonic_rhythm = harmonic_rhythm
+
+    with harm_col3:
+        ext_names = list(CHORD_EXTENSIONS.keys())
+        ext_idx = ext_names.index(st.session_state.extensions) if st.session_state.extensions in ext_names else 0
+        extensions = st.selectbox("Chord Extensions", ext_names, index=ext_idx, key="w_extensions")
+        if extensions != st.session_state.extensions:
+            st.session_state.extensions = extensions
+
 
 # =============================================================================
 # SONG STRUCTURE
 # =============================================================================
 
-st.divider()
-st.header("📝 Song Structure (Meta Tags)")
-st.caption("Define your song sections with instrument/mood descriptors")
+st.header("Song Structure")
 
-# Add section button and preset selector
-col_add, col_preset = st.columns([1, 2])
-
-with col_add:
-    if st.button("+ Add Section"):
-        st.session_state.sections.append(create_section("Verse", ""))
+# Add section button
+add_col1, add_col2, add_col3 = st.columns([2, 2, 1])
+with add_col1:
+    new_section_type = st.selectbox("Add section", SECTION_TYPES, key="w_new_section_type")
+with add_col2:
+    new_section_instruments = st.text_input("Instruments (optional)", key="w_new_section_instruments")
+with add_col3:
+    st.write("")  # spacing
+    if st.button("Add", use_container_width=True):
+        st.session_state.sections.append({
+            "id": str(uuid.uuid4()),
+            "type": new_section_type,
+            "instruments": new_section_instruments,
+        })
         st.rerun()
 
-with col_preset:
-    preset_options = ["-- Select Preset --"] + list(DEFAULT_SECTIONS.keys())
+# AI-suggest instruments button
+suggest_col1, suggest_col2 = st.columns(2)
+with suggest_col1:
+    if st.button("AI Suggest Instruments", help="Fill empty instrument fields based on genre/mood"):
+        st.session_state.sections = suggest_section_instruments(
+            sections=st.session_state.sections,
+            genre=st.session_state.genre,
+            mood=st.session_state.mood,
+            key=st.session_state.key,
+            mode=st.session_state.mode,
+            tempo=st.session_state.tempo,
+            time_sig=st.session_state.time_sig,
+            style_preset=st.session_state.style_preset,
+            style_influence=st.session_state.style_influence,
+            progression=st.session_state.progression,
+            api_key=st.session_state.api_key if st.session_state.use_llm else None,
+        )
+        st.rerun()
+with suggest_col2:
+    if st.button("Clear All Instruments"):
+        for s in st.session_state.sections:
+            s["instruments"] = ""
+        st.rerun()
 
-    def apply_preset():
-        choice = st.session_state.get("preset_select")
-        if choice and choice != "-- Select Preset --":
-            preset_sections = DEFAULT_SECTIONS.get(choice, DEFAULT_SECTIONS["default"])
-            current_sections = st.session_state.sections
-
-            # Merge: use preset types but keep extra sections if lyrics are longer
-            merged_sections = []
-
-            for i, preset_type in enumerate(preset_sections):
-                if i < len(current_sections):
-                    # Keep existing section's instruments if it has any, update type
-                    existing = current_sections[i]
-                    merged_sections.append(create_section(
-                        preset_type,
-                        existing.get('instruments', '')  # Preserve instruments from lyrics
-                    ))
-                else:
-                    # Preset has more sections than current - add new
-                    merged_sections.append(create_section(preset_type, ""))
-
-            # Keep extra sections from lyrics if they're longer than preset
-            if len(current_sections) > len(preset_sections):
-                for extra_section in current_sections[len(preset_sections):]:
-                    merged_sections.append(extra_section)
-
-            # Auto-fill if enabled - store for processing after widgets load
-            st.session_state["_pending_autofill"] = True
-            st.session_state.sections = merged_sections
-
-            # Reset the selectbox
-            st.session_state["preset_select"] = "-- Select Preset --"
-
-    st.selectbox(
-        "Load preset structure",
-        options=preset_options,
-        key="preset_select",
-        on_change=apply_preset
+# Conflict detection
+if st.session_state.mood and st.session_state.mood != "None":
+    conflicts = detect_section_conflicts(
+        st.session_state.sections, st.session_state.genre, st.session_state.mood
     )
+    if conflicts:
+        for c in conflicts:
+            st.warning(f"**{c['section']}**: {c['conflict']}. Try: {c['suggestion']}")
 
-# Handle pending auto-fill (after all selections are available)
-if st.session_state.get("_pending_autofill") and auto_fill_sections:
-    st.session_state.pop("_pending_autofill", None)
-    api_key = st.session_state.get("openai_api_key", "")
-
-    # Get current selections for auto-fill context
-    filled_sections = suggest_section_instruments(
-        sections=st.session_state.sections,
-        genre=selected_genre,
-        mood=selected_mood,
-        key=selected_key if selected_key != "None" else None,
-        mode=selected_mode,
-        tempo=selected_tempo if selected_tempo != "None" else None,
-        time_sig=selected_time_sig,
-        style_preset=selected_preset if is_jazz else None,
-        style_influence=selected_influence if is_jazz else None,
-        progression=PROGRESSION_TYPES.get(selected_progression) if is_jazz and selected_progression != "None" else None,
-        api_key=api_key if api_key else None
-    )
-    st.session_state.sections = filled_sections
-    st.rerun()
-elif st.session_state.get("_pending_autofill"):
-    # Auto-fill disabled, clear flag
-    st.session_state.pop("_pending_autofill", None)
-
-# Create sortable items using 1-based index for display - format: "index|Type: instruments"
-sortable_items = [
-    f"{i+1}|{s['type']}: {s.get('instruments', '') or '(no instruments)'}"
-    for i, s in enumerate(st.session_state.sections)
-]
-
-# Build index to section mapping (1-based index as string)
-idx_to_section = {str(i+1): s for i, s in enumerate(st.session_state.sections)}
-
-# Display sortable list (drag and drop)
-st.caption("Drag to reorder sections:")
-sorted_items = sort_items(sortable_items, direction="vertical")
-
-# Check if order changed by comparing indices
-sorted_indices = [item.split("|")[0] for item in sorted_items]
-current_indices = [str(i+1) for i in range(len(st.session_state.sections))]
-
-if sorted_indices != current_indices:
-    # Reorder sections based on drag result using index mapping
-    st.session_state.sections = [idx_to_section[idx] for idx in sorted_indices]
-    st.rerun()
-
-# Display editable sections
-st.caption("Edit sections:")
+# Section editor
 sections_to_remove = []
-
 for i, section in enumerate(st.session_state.sections):
-    section_id = section['id']
-    col_num, col_type, col_instr, col_del = st.columns([0.3, 1, 3, 0.2])
+    sec_col1, sec_col2, sec_col3, sec_col4, sec_col5 = st.columns([1.5, 3, 0.5, 0.5, 0.5])
 
-    with col_num:
-        st.markdown(f"**{i+1}.**")
-
-    with col_type:
+    with sec_col1:
+        type_idx = SECTION_TYPES.index(section["type"]) if section["type"] in SECTION_TYPES else 0
         new_type = st.selectbox(
-            f"Section {i+1}",
-            options=SECTION_TYPES,
-            index=SECTION_TYPES.index(section["type"]) if section["type"] in SECTION_TYPES else 0,
-            key=f"section_type_{section_id}",
-            label_visibility="collapsed"
+            "Type", SECTION_TYPES, index=type_idx,
+            key=f"sec_type_{section['id']}",
+            label_visibility="collapsed",
         )
-        st.session_state.sections[i]["type"] = new_type
+        if new_type != section["type"]:
+            st.session_state.sections[i]["type"] = new_type
 
-    with col_instr:
+    with sec_col2:
         new_instr = st.text_input(
-            f"Instruments {i+1}",
-            value=section.get("instruments", ""),
-            key=f"section_instr_{section_id}",
-            placeholder="e.g., acoustic guitar, mellow tone",
-            label_visibility="collapsed"
+            "Instruments", value=section["instruments"],
+            key=f"sec_instr_{section['id']}",
+            label_visibility="collapsed",
+            placeholder="instruments, texture, energy...",
         )
-        st.session_state.sections[i]["instruments"] = new_instr
+        if new_instr != section["instruments"]:
+            st.session_state.sections[i]["instruments"] = new_instr
 
-    with col_del:
-        if st.button("✕", key=f"del_{section_id}", help="Remove section"):
+    with sec_col3:
+        if i > 0 and st.button("↑", key=f"up_{section['id']}"):
+            st.session_state.sections[i], st.session_state.sections[i-1] = \
+                st.session_state.sections[i-1], st.session_state.sections[i]
+            st.rerun()
+
+    with sec_col4:
+        if i < len(st.session_state.sections) - 1 and st.button("↓", key=f"down_{section['id']}"):
+            st.session_state.sections[i], st.session_state.sections[i+1] = \
+                st.session_state.sections[i+1], st.session_state.sections[i]
+            st.rerun()
+
+    with sec_col5:
+        if st.button("✕", key=f"rm_{section['id']}"):
             sections_to_remove.append(i)
 
-# Remove marked sections
+# Remove sections marked for deletion
 if sections_to_remove:
-    for i in sorted(sections_to_remove, reverse=True):
-        st.session_state.sections.pop(i)
+    for idx in sorted(sections_to_remove, reverse=True):
+        st.session_state.sections.pop(idx)
     st.rerun()
 
-# Detect and display section/mood conflicts
-conflicts = detect_section_conflicts(
-    sections=st.session_state.sections,
-    genre=selected_genre,
-    mood=selected_mood
-)
-
-if conflicts:
-    with st.expander(f"⚠️ {len(conflicts)} Section Conflict(s) Detected", expanded=True):
-        st.caption("These section instruments may conflict with your selected mood/genre:")
-        for conflict in conflicts:
-            col_warn, col_fix = st.columns([4, 1])
-            with col_warn:
-                st.warning(f"**{conflict['section']}**: {conflict['conflict']}")
-                st.caption(f"💡 Suggested: _{conflict['suggestion']}_")
-            with col_fix:
-                # Quick fix button
-                if st.button("Fix", key=f"fix_{conflict['section']}_{conflict['type']}", help="Replace with suggested instruments"):
-                    # Find and update the section
-                    for i, section in enumerate(st.session_state.sections):
-                        if section["type"] == conflict["section"]:
-                            st.session_state.sections[i]["instruments"] = conflict["suggestion"]
-                            break
-                    st.rerun()
 
 # =============================================================================
 # LYRICS
 # =============================================================================
 
-st.divider()
-st.header("🎤 Lyrics")
+st.header("Lyrics")
 
-col_template, col_paste = st.columns(2)
+lyrics_col1, lyrics_col2 = st.columns(2)
 
-with col_template:
-    selected_lyric_template = st.selectbox(
-        "Lyric Template",
-        options=list(LYRIC_TEMPLATES.keys()),
-        index=0,
-        key="lyric_template_select",
-        help="Structured lyric template (overridden by pasted lyrics)"
+with lyrics_col1:
+    suno_lyrics = st.text_area(
+        "Paste Suno Lyrics (optional)",
+        value=st.session_state.suno_lyrics,
+        height=150,
+        help="Paste existing lyrics with [Section] tags. They'll be merged with your structure.",
+        key="w_suno_lyrics",
     )
+    if suno_lyrics != st.session_state.suno_lyrics:
+        st.session_state.suno_lyrics = suno_lyrics
 
-with col_paste:
-    st.caption("Or paste Suno-generated lyrics:")
-
-suno_lyrics = st.text_area(
-    "Paste Suno Lyrics",
-    height=150,
-    placeholder="Paste lyrics from Suno here...\nThese will be included after the structure tags and take precedence over templates.",
-    label_visibility="collapsed",
-    value=st.session_state.get("loaded_lyrics", ""),
-    key="suno_lyrics_input"
-)
-
-# Auto-sync Song Structure from pasted lyrics
-if "prev_lyrics" not in st.session_state:
-    st.session_state.prev_lyrics = ""
-if "prev_sync_mode" not in st.session_state:
-    st.session_state.prev_sync_mode = "Smart merge"
-
-current_lyrics = st.session_state.get("suno_lyrics_input", "")
-sync_mode = st.session_state.get("lyrics_sync_mode", "Smart merge")
-
-# Check if lyrics OR sync mode changed
-lyrics_changed = current_lyrics != st.session_state.prev_lyrics
-mode_changed = sync_mode != st.session_state.prev_sync_mode
-
-# Sync if (lyrics changed OR mode changed) AND have section tags
-if (lyrics_changed or mode_changed) and current_lyrics.strip() and "[" in current_lyrics:
-    # Update tracking state
-    st.session_state.prev_sync_mode = sync_mode
-
-    # "Keep structure" mode - don't modify structure at all
-    if sync_mode == "Keep structure":
-        st.session_state.prev_lyrics = current_lyrics
-        if mode_changed:
-            st.toast("Keep structure mode: structure unchanged")
-        # Don't modify sections - lyrics will be mapped at output time
-    else:
-        from generator import parse_lyrics_to_sections, suggest_section_instruments
-        parsed_sections = parse_lyrics_to_sections(current_lyrics)
-
-        if parsed_sections and len(parsed_sections) > 0:
-
-            # "Replace structure" mode - current/legacy behavior
-            if sync_mode == "Replace structure":
-                if st.session_state.get("auto_fill_sections", True):
-                    current_genre = st.session_state.get("genre_select", "default")
-                    current_mood = st.session_state.get("mood_select", "default")
-                    parsed_sections = suggest_section_instruments(
-                        sections=parsed_sections,
-                        genre=current_genre,
-                        mood=current_mood
-                    )
-                st.session_state.sections = parsed_sections
-                st.session_state.prev_lyrics = current_lyrics
-                st.toast(f"Replaced structure with {len(parsed_sections)} sections from lyrics")
+    # Parse lyrics to sections
+    if suno_lyrics.strip():
+        if st.button("Import Sections from Lyrics"):
+            parsed = parse_lyrics_to_sections(suno_lyrics)
+            if parsed:
+                st.session_state.sections = parsed
+                st.success(f"Imported {len(parsed)} sections from lyrics")
                 st.rerun()
+            else:
+                st.warning("No section tags found in lyrics")
 
-            # "Smart merge" mode - keep structure + add missing types
-            elif sync_mode == "Smart merge":
-                current_sections = [s.copy() for s in st.session_state.sections]
+with lyrics_col2:
+    # Lyric template (Jazz-specific)
+    if is_jazz:
+        template_names = list(LYRIC_TEMPLATES.keys())
+        template_idx = template_names.index(st.session_state.lyric_template) if st.session_state.lyric_template in template_names else 0
+        lyric_template = st.selectbox(
+            "Lyric Template",
+            template_names,
+            index=template_idx,
+            help="Pre-built lyric structures for jazz compositions",
+            key="w_lyric_template",
+        )
+        if lyric_template != st.session_state.lyric_template:
+            st.session_state.lyric_template = lyric_template
 
-                # Get unique section types
-                lyrics_types = set(s['type'].lower() for s in parsed_sections)
-                current_types = set(s['type'].lower() for s in current_sections)
+        # Preview template
+        if lyric_template != "None":
+            template_content = LYRIC_TEMPLATES.get(lyric_template, "")
+            if template_content:
+                with st.expander("Template Preview"):
+                    st.text(template_content[:500])
 
-                # Find section types in lyrics but NOT in current structure
-                missing_types = lyrics_types - current_types
-                added_count = 0
-
-                # Add missing types at appropriate positions
-                if missing_types:
-                    for parsed in parsed_sections:
-                        ptype = parsed['type'].lower()
-                        if ptype in missing_types:
-                            # Find best insertion point
-                            insert_idx = _find_insert_position(current_sections, parsed['type'])
-                            new_section = create_section(parsed['type'], parsed.get('instruments', ''))
-                            current_sections.insert(insert_idx, new_section)
-                            missing_types.discard(ptype)
-                            added_count += 1
-
-                # Auto-fill instruments for new sections
-                if added_count > 0 and st.session_state.get("auto_fill_sections", True):
-                    current_genre = st.session_state.get("genre_select", "default")
-                    current_mood = st.session_state.get("mood_select", "default")
-                    current_sections = suggest_section_instruments(
-                        sections=current_sections,
-                        genre=current_genre,
-                        mood=current_mood
-                    )
-
-                st.session_state.sections = current_sections
-                st.session_state.prev_lyrics = current_lyrics
-
-                if added_count > 0:
-                    st.toast(f"Added {added_count} section type(s) from lyrics")
-                st.rerun()
-
-    st.session_state.prev_lyrics = current_lyrics
-
-# Poetic meter reference
-with st.expander("📚 Poetic Meter Reference"):
-    for meter_name, meter_info in POETIC_METERS.items():
-        st.markdown(f"**{meter_name}**")
-        st.caption(f"Pattern: {meter_info['pattern']} | Feel: {meter_info['feel']}")
-        st.caption(f"Example: _{meter_info['example']}_")
-        st.caption(f"Best for: {meter_info['genres']}")
-        st.markdown("---")
 
 # =============================================================================
 # GENERATE
@@ -798,424 +610,455 @@ with st.expander("📚 Poetic Meter Reference"):
 
 st.divider()
 
-col_gen, col_batch = st.columns(2)
+gen_col1, gen_col2 = st.columns([3, 1])
 
-with col_gen:
-    generate_clicked = st.button("🎵 Generate", type="primary", use_container_width=True)
+with gen_col1:
+    generate_clicked = st.button("Generate", type="primary", use_container_width=True)
 
-with col_batch:
-    batch_count = st.number_input("Batch count", min_value=1, max_value=5, value=1, label_visibility="collapsed")
-    batch_clicked = st.button("📦 Batch Generate", use_container_width=True)
+with gen_col2:
+    if st.button("Suggest Title"):
+        title = suggest_song_title(
+            genre=st.session_state.genre,
+            mood=st.session_state.mood,
+            key=st.session_state.key,
+            mode=st.session_state.mode,
+            use_llm=st.session_state.use_llm and bool(st.session_state.api_key),
+            api_key=st.session_state.api_key,
+            style_preset=st.session_state.style_preset,
+            tempo=st.session_state.tempo,
+            tech_context=st.session_state.tech_context,
+            profile=st.session_state.profile,
+            sections=st.session_state.sections,
+        )
+        st.session_state.suggested_title = title
+        st.session_state.w_song_title = title
+        st.rerun()
 
-if generate_clicked or batch_clicked:
-    api_key = st.session_state.get("openai_api_key", "")
-
-    # Read values directly from widget return values (captured when widgets rendered)
-    # These are guaranteed to match what's displayed in the UI
-    current_genre = selected_genre
-    current_key = selected_key
-    current_mode = selected_mode
-    current_tempo = selected_tempo
-    current_time_sig = selected_time_sig
-    current_mood = selected_mood
-    current_is_jazz = current_genre == "Jazz"
-
-    # Read Options from widget return values
-    current_preset = selected_preset
-    current_influence = selected_influence
-    current_progression = selected_progression
-    current_harmonic_rhythm = selected_harmonic_rhythm
-    current_extensions = selected_extensions
-
-    # Clear any previous results to force fresh display
-    for key in ["generated_style", "generated_lyrics", "batch_results"]:
-        if key in st.session_state:
-            del st.session_state[key]
-
-    # Check if LLM is enabled but no API key
-    if use_llm and not api_key:
-        st.error("OpenAI API key required for LLM generation. Add it in the sidebar or disable LLM mode.")
+if generate_clicked:
+    # Validate LLM mode
+    if st.session_state.use_llm and not st.session_state.api_key:
+        st.error("API key required for LLM generation. Add it in the sidebar.")
     else:
-        count = batch_count if batch_clicked else 1
+        with st.spinner("Generating..."):
+            # Resolve harmony values
+            prog_value = PROGRESSION_TYPES.get(st.session_state.progression, "")
+            hr_value = HARMONIC_RHYTHM.get(st.session_state.harmonic_rhythm, "")
+            ext_value = CHORD_EXTENSIONS.get(st.session_state.extensions, "")
 
-        # Rebuild sections from current widget state to ensure sync
-        current_sections = []
-        for section in st.session_state.sections:
-            section_id = section['id']
-            # Get current values from widget keys (most up-to-date)
-            current_type = st.session_state.get(f"section_type_{section_id}", section["type"])
-            current_instr = st.session_state.get(f"section_instr_{section_id}", section.get("instruments", ""))
-            current_sections.append({
-                "id": section_id,
-                "type": current_type,
-                "instruments": current_instr
-            })
+            # Resolve key value
+            key_value = resolve_key_value(st.session_state.key, st.session_state.key_quality)
 
-        for batch_idx in range(count):
-            with st.spinner(f"Generating{f' ({batch_idx+1}/{count})' if count > 1 else ''}..."):
-                try:
-                    # Use widget return values directly
-                    current_lyric_template = selected_lyric_template
-                    current_suno_lyrics = suno_lyrics  # Widget return value from text_area
+            # Resolve mood value
+            mood_value = MOOD_VARIATIONS.get(st.session_state.mood, "")
 
-                    result = generate_outputs(
-                        genre=current_genre,
-                        key=current_key if current_key != "None" else "",
-                        mode=current_mode,
-                        tempo=current_tempo if current_tempo != "None" else "",
-                        time_sig=current_time_sig,
-                        mood=MOOD_VARIATIONS.get(current_mood, ""),
-                        sections=current_sections,
-                        suno_lyrics=current_suno_lyrics,
-                        lyric_template=current_lyric_template,
-                        style_preset=current_preset,
-                        style_influence=current_influence,
-                        progression=PROGRESSION_TYPES.get(current_progression, ""),
-                        harmonic_rhythm=HARMONIC_RHYTHM.get(current_harmonic_rhythm, ""),
-                        extensions=CHORD_EXTENSIONS.get(current_extensions, ""),
-                        replace_guitar=replace_guitar,
-                        use_llm=use_llm,
-                        api_key=api_key if use_llm else None
-                    )
-
-                    # Store in session state
-                    if batch_idx == 0:
-                        st.session_state.generated_style = result["style"]
-                        st.session_state.generated_lyrics = result["lyrics"]
-                        st.session_state.was_cached = result.get("cached", False)
-                        st.toast(f"✅ Generated for {current_genre}" + (f" - {current_preset}" if current_preset != "None" else ""))
-                    else:
-                        # For batch, append to list
-                        if "batch_results" not in st.session_state:
-                            st.session_state.batch_results = []
-                        st.session_state.batch_results.append(result)
-
-                except Exception as e:
-                    st.error(f"Generation failed: {e}")
-
-# =============================================================================
-# DISPLAY OUTPUTS
-# =============================================================================
-
-if "generated_style" in st.session_state:
-    st.header("📋 Generated Outputs")
-
-    if st.session_state.get("was_cached"):
-        st.info("💾 Loaded from cache")
-
-    col_style, col_lyrics = st.columns(2)
-
-    with col_style:
-        st.subheader("Style Field")
-        st.caption("Paste into Suno's **Style** box")
-        # No key parameter - ensures value always reflects current session state
-        st.text_area(
-            "Style output",
-            value=st.session_state.generated_style,
-            height=400,
-            label_visibility="collapsed"
-        )
-
-    with col_lyrics:
-        st.subheader("Lyrics Field")
-        st.caption("Paste into Suno's **Lyrics** box")
-        # No key parameter - ensures value always reflects current session state
-        st.text_area(
-            "Lyrics output",
-            value=st.session_state.generated_lyrics,
-            height=400,
-            label_visibility="collapsed"
-        )
-
-    # Show batch results if any
-    if "batch_results" in st.session_state and st.session_state.batch_results:
-        st.subheader("📦 Batch Results")
-        for i, result in enumerate(st.session_state.batch_results, start=2):
-            with st.expander(f"Variation {i}"):
-                col_bs, col_bl = st.columns(2)
-                with col_bs:
-                    st.text_area(f"Style {i}", value=result["style"], height=200, label_visibility="collapsed")
-                with col_bl:
-                    st.text_area(f"Lyrics {i}", value=result["lyrics"], height=200, label_visibility="collapsed")
-
-    # =============================================================================
-    # LYRICS VALIDATION
-    # =============================================================================
-
-    st.divider()
-    st.subheader("🔍 Lyrics Format Validation")
-
-    # Get current lyrics (use refined if available, otherwise generated)
-    lyrics_to_validate = st.session_state.get("refined_lyrics", st.session_state.generated_lyrics)
-
-    # Local validation (always runs)
-    local_validation = validate_lyrics_format(lyrics_to_validate)
-
-    # Display local validation results
-    if local_validation["warnings"]:
-        for warning in local_validation["warnings"]:
-            st.warning(warning)
-
-    if local_validation["suggestions"]:
-        with st.expander("💡 Suggestions", expanded=len(local_validation["warnings"]) > 0):
-            for suggestion in local_validation["suggestions"]:
-                st.info(f"💡 {suggestion}")
-
-    # Tag analysis
-    tag_analysis = local_validation.get("tag_analysis", {})
-    if tag_analysis.get("total_tags", 0) > 0:
-        with st.expander("📊 Tag Analysis"):
-            col_t1, col_t2, col_t3 = st.columns(3)
-            with col_t1:
-                st.metric("Total Tags", tag_analysis["total_tags"])
-            with col_t2:
-                st.metric("Standard Tags", tag_analysis["standard_tags"])
-            with col_t3:
-                custom_count = tag_analysis["custom_tags"]
-                st.metric("Custom Tags", custom_count, delta="⚠️" if custom_count > 0 else None)
-
-            if tag_analysis.get("tag_counts"):
-                st.caption("Tag frequency:")
-                st.json(tag_analysis["tag_counts"])
-
-    # AI validation (optional)
-    api_key = st.session_state.get("openai_api_key", "") or os.environ.get("OPENAI_API_KEY", "")
-
-    if api_key:
-        col_validate, col_fix = st.columns(2)
-
-        with col_validate:
-            if st.button("🤖 Validate with AI", use_container_width=True):
-                with st.spinner("AI is analyzing lyrics format..."):
-                    ai_result = validate_lyrics_with_llm(lyrics_to_validate, api_key)
-                    st.session_state.ai_validation = ai_result
-
-        with col_fix:
-            if st.session_state.get("ai_validation", {}).get("corrected_lyrics"):
-                if st.button("✅ Apply AI Corrections", use_container_width=True):
-                    corrected = st.session_state.ai_validation["corrected_lyrics"]
-                    st.session_state.generated_lyrics = corrected
-                    if "refined_lyrics" in st.session_state:
-                        st.session_state.refined_lyrics = corrected
-                    st.success("Applied AI corrections!")
-                    st.rerun()
-
-        # Display AI validation results
-        if "ai_validation" in st.session_state:
-            ai_result = st.session_state.ai_validation
-
-            if ai_result.get("valid"):
-                st.success("✅ AI validation passed - lyrics format looks good!")
+            # Resolve tempo value (for jazz)
+            if is_jazz:
+                tempo_value = TEMPO_VARIATIONS.get(st.session_state.tempo, "")
             else:
-                if ai_result.get("issues"):
-                    st.error("❌ AI found issues:")
-                    for issue in ai_result["issues"]:
-                        st.markdown(f"- {issue}")
+                tempo_value = st.session_state.tempo
 
-                if ai_result.get("suggestions"):
-                    st.info("💡 AI suggestions:")
-                    for suggestion in ai_result["suggestions"]:
-                        st.markdown(f"- {suggestion}")
-
-                if ai_result.get("corrected_lyrics"):
-                    with st.expander("📝 AI-Corrected Version"):
-                        st.text_area(
-                            "Corrected lyrics",
-                            value=ai_result["corrected_lyrics"],
-                            height=300,
-                            label_visibility="collapsed",
-                            key="ai_corrected_preview"
-                        )
-    else:
-        st.caption("💡 Add OpenAI API key in sidebar for AI-powered format validation")
-
-    if local_validation["valid"] and not local_validation["warnings"]:
-        st.success("✅ Local validation passed - no obvious format issues detected")
-
-    # =============================================================================
-    # REFINER
-    # =============================================================================
-
-    st.divider()
-    st.subheader("🔧 Refine with AI")
-    st.caption("Use OpenAI to analyze and improve both outputs")
-
-    api_key = st.session_state.get("openai_api_key", "") or os.environ.get("OPENAI_API_KEY", "")
-
-    if api_key:
-        if st.button("✨ Refine Outputs", type="secondary", use_container_width=True):
-            with st.spinner("Analyzing and refining outputs..."):
-                try:
-                    result = run_refinement_agent(
-                        st.session_state.generated_style,
-                        st.session_state.generated_lyrics,
-                        api_key,
-                        is_jazz=is_jazz
-                    )
-                    st.session_state.refined_style = result["refined_style"]
-                    st.session_state.refined_lyrics = result["refined_lyrics"]
-                    st.session_state.refiner_reasoning = result["reasoning"]
-                    st.session_state.style_score = result["style_score"]
-                    st.session_state.lyrics_score = result["lyrics_score"]
-                except Exception as e:
-                    st.error(f"Refinement failed: {e}")
-    else:
-        st.info("Enter OpenAI API key in the sidebar to enable refinement")
-
-    # Display refined outputs
-    if "refined_style" in st.session_state:
-        st.markdown("---")
-        st.markdown(f"**Scores:** Style {st.session_state.style_score}/10 | Lyrics {st.session_state.lyrics_score}/10")
-
-        col_ref_style, col_ref_lyrics = st.columns(2)
-
-        with col_ref_style:
-            st.markdown("**Refined Style Field**")
-            st.text_area(
-                "Refined style",
-                value=st.session_state.refined_style,
-                height=400,
-                key="refined_style_display",
-                label_visibility="collapsed"
+            result = generate_outputs(
+                genre=st.session_state.genre,
+                key=key_value,
+                mode=st.session_state.mode,
+                tempo=tempo_value,
+                time_sig=st.session_state.time_sig,
+                mood=mood_value,
+                sections=st.session_state.sections,
+                suno_lyrics=st.session_state.suno_lyrics,
+                lyric_template=st.session_state.lyric_template,
+                style_preset=st.session_state.style_preset,
+                style_influence=st.session_state.style_influence,
+                progression=prog_value,
+                harmonic_rhythm=hr_value,
+                extensions=ext_value,
+                replace_guitar=st.session_state.replace_guitar,
+                use_llm=st.session_state.use_llm,
+                api_key=st.session_state.api_key,
+                profile=st.session_state.profile,
+                tech_context=st.session_state.tech_context,
             )
 
-        with col_ref_lyrics:
-            st.markdown("**Refined Lyrics Field**")
-            st.text_area(
-                "Refined lyrics",
-                value=st.session_state.refined_lyrics,
-                height=400,
-                key="refined_lyrics_display",
-                label_visibility="collapsed"
-            )
+            st.session_state.style_output = result["style"]
+            st.session_state.lyrics_output = result["lyrics"]
 
-        # Show reasoning
-        with st.expander("🔍 Refinement Reasoning"):
-            for step in st.session_state.refiner_reasoning:
-                if "action" in step:
-                    st.markdown(f"**Action:** `{step['action']}`")
-                if "observation" in step:
-                    st.markdown(f"→ {step['observation']}")
-                if "details" in step:
-                    st.caption(step["details"])
+            if result.get("cached"):
+                st.info("Using cached LLM result")
 
-    # =============================================================================
-    # SAVE SONG
-    # =============================================================================
+        save_current_session()
 
-    st.divider()
-    st.subheader("💾 Save Song")
 
-    col_title, col_suggest, col_save = st.columns([2.5, 0.5, 1])
+# =============================================================================
+# OUTPUT DISPLAY
+# =============================================================================
 
-    with col_title:
-        # Use suggested title if available
-        default_title = st.session_state.get("suggested_title", "")
-        song_title = st.text_input(
-            "Song Title",
-            value=default_title,
-            placeholder="Enter a title for this song...",
-            label_visibility="collapsed"
+if st.session_state.style_output or st.session_state.lyrics_output:
+    st.header("Output")
+
+    out_col1, out_col2 = st.columns(2)
+
+    with out_col1:
+        st.subheader("Style Field")
+        st.text_area(
+            "Style",
+            value=st.session_state.style_output,
+            height=200,
+            key="w_style_display",
+            label_visibility="collapsed",
+        )
+        char_count = len(st.session_state.style_output)
+        color = "red" if char_count > 1000 else "orange" if char_count > 800 else "green"
+        st.markdown(f":{color}[{char_count}/1000 characters]")
+
+    with out_col2:
+        st.subheader("Lyrics Field")
+        st.text_area(
+            "Lyrics",
+            value=st.session_state.lyrics_output,
+            height=200,
+            key="w_lyrics_display",
+            label_visibility="collapsed",
         )
 
-    with col_suggest:
-        if st.button("💡", help="Suggest a title based on your settings", use_container_width=True):
-            api_key = st.session_state.get("openai_api_key", "")
-            suggested = suggest_song_title(
-                genre=selected_genre,
-                mood=selected_mood,
-                key=selected_key,
-                mode=selected_mode,
-                use_llm=bool(api_key),
-                api_key=api_key
+    # Lyrics validation
+    if st.session_state.lyrics_output:
+        validation = validate_lyrics_format(st.session_state.lyrics_output)
+        if validation.get("warnings"):
+            for w in validation["warnings"]:
+                st.warning(w)
+        if validation.get("suggestions"):
+            with st.expander("Suggestions"):
+                for s in validation["suggestions"]:
+                    st.caption(f"- {s}")
+
+    # ==========================================================================
+    # AI REFINEMENT
+    # ==========================================================================
+
+    st.subheader("AI Refinement")
+
+    refine_col1, refine_col2 = st.columns(2)
+
+    # ── Quick Refine (existing one-shot) ──────────────────────────────────
+    with refine_col1:
+        if st.button("Quick Refine", help="One-shot analysis and improvement"):
+            if not st.session_state.api_key:
+                st.error("API key required for AI refinement.")
+            else:
+                with st.spinner("Refining..."):
+                    try:
+                        refine_result = run_refinement_agent(
+                            style_text=st.session_state.style_output,
+                            lyrics_text=st.session_state.lyrics_output,
+                            api_key=st.session_state.api_key,
+                            is_jazz=is_jazz,
+                            genre=st.session_state.genre,
+                            mood=st.session_state.mood,
+                            profile=st.session_state.profile,
+                        )
+
+                        score_col1, score_col2, score_col3 = st.columns(3)
+                        score_col1.metric("Style Score", f"{refine_result['style_score']}/10")
+                        score_col2.metric("Lyrics Score", f"{refine_result['lyrics_score']}/10")
+                        overall = round((refine_result['style_score'] + refine_result['lyrics_score']) / 2)
+                        score_col3.metric("Overall", f"{overall}/10")
+
+                        with st.expander("Reasoning Steps"):
+                            for step in refine_result.get("reasoning", []):
+                                if "action" in step:
+                                    st.caption(f"Called: {step['action']}")
+                                if "observation" in step:
+                                    st.caption(f"Result: {step['observation']}")
+
+                        ref_col1, ref_col2 = st.columns(2)
+                        with ref_col1:
+                            st.text_area("Refined Style", value=refine_result["refined_style"],
+                                         height=200, key="w_refined_style")
+                        with ref_col2:
+                            st.text_area("Refined Lyrics", value=refine_result["refined_lyrics"],
+                                         height=200, key="w_refined_lyrics")
+
+                        if st.button("Accept Refinement"):
+                            st.session_state.style_output = refine_result["refined_style"]
+                            st.session_state.lyrics_output = refine_result["refined_lyrics"]
+                            save_current_session()
+                            st.rerun()
+
+                    except Exception as e:
+                        st.error(f"Refinement failed: {e}")
+
+    # ── Iterative Refinement ──────────────────────────────────────────────
+    with refine_col2:
+        if not st.session_state.iter_active:
+            if st.button("Refine with Suggestions",
+                         help="Get AI suggestions and refine iteratively"):
+                if not st.session_state.api_key:
+                    st.error("API key required.")
+                elif not st.session_state.style_output:
+                    st.error("Generate a prompt first.")
+                else:
+                    # Save original as version 0
+                    st.session_state.iter_versions = [{
+                        "version": 0,
+                        "style": st.session_state.style_output,
+                        "lyrics": st.session_state.lyrics_output,
+                        "suggestions_shown": [],
+                        "suggestions_applied": [],
+                        "user_feedback": "",
+                    }]
+                    with st.spinner("Analyzing..."):
+                        try:
+                            suggestions = generate_suggestions(
+                                style_text=st.session_state.style_output,
+                                lyrics_text=st.session_state.lyrics_output,
+                                api_key=st.session_state.api_key,
+                                is_jazz=is_jazz,
+                                genre=st.session_state.genre,
+                                mood=st.session_state.mood,
+                                profile=st.session_state.profile,
+                            )
+                            st.session_state.iter_suggestions = suggestions
+                            st.session_state.iter_active = True
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Analysis failed: {e}")
+        else:
+            if st.button("Close Suggestions"):
+                st.session_state.iter_active = False
+                st.session_state.iter_suggestions = []
+                st.session_state.iter_versions = []
+                st.rerun()
+
+    # ── Suggestions Panel (when active) ───────────────────────────────────
+    if st.session_state.iter_active and st.session_state.iter_suggestions:
+        current_version = len(st.session_state.iter_versions) - 1
+        current = st.session_state.iter_versions[-1]
+
+        st.divider()
+        st.caption(f"Version {current_version} — select suggestions to apply")
+
+        # Display current outputs
+        iter_out_col1, iter_out_col2 = st.columns(2)
+        with iter_out_col1:
+            st.text_area("Current Style", value=current["style"],
+                         height=150, key="w_iter_style_display", disabled=True)
+        with iter_out_col2:
+            st.text_area("Current Lyrics", value=current["lyrics"],
+                         height=150, key="w_iter_lyrics_display", disabled=True)
+
+        # Suggestion checkboxes
+        category_icons = {
+            "instrumentation": "Instruments",
+            "harmony": "Harmony",
+            "mood": "Mood",
+            "structure": "Structure",
+            "technical": "Technical",
+        }
+
+        for sugg in st.session_state.iter_suggestions:
+            cat_label = category_icons.get(sugg["category"], sugg["category"])
+            checked = st.checkbox(
+                f"**[{cat_label}]** {sugg['title']}",
+                key=f"iter_check_{sugg['id']}",
+                help=sugg["description"],
             )
-            st.session_state.suggested_title = suggested
+            st.caption(f"  {sugg['description']}")
+            has_preview = (
+                sugg.get("preview_style", "no change") != "no change"
+                or sugg.get("preview_lyrics", "no change") != "no change"
+            )
+            if has_preview:
+                with st.expander(f"Preview: {sugg['title']}", expanded=False):
+                    if sugg.get("preview_style", "no change") != "no change":
+                        st.text(f"Style: {sugg['preview_style']}")
+                    if sugg.get("preview_lyrics", "no change") != "no change":
+                        st.text(f"Lyrics: {sugg['preview_lyrics']}")
+
+        # Custom feedback
+        user_feedback = st.text_input(
+            "Additional direction (optional)",
+            placeholder="e.g., make it warmer, add more space...",
+            key="w_iter_feedback",
+        )
+
+        # Action buttons
+        btn_col1, btn_col2, btn_col3 = st.columns(3)
+
+        with btn_col1:
+            apply_clicked = st.button("Apply Selected", type="primary")
+
+        with btn_col2:
+            analyze_again = st.button("Re-analyze")
+
+        with btn_col3:
+            accept_close = st.button("Accept & Close")
+
+        # Handle Apply
+        if apply_clicked:
+            selected = [
+                s for s in st.session_state.iter_suggestions
+                if st.session_state.get(f"iter_check_{s['id']}", False)
+            ]
+            if not selected and not user_feedback.strip():
+                st.warning("Select at least one suggestion or provide feedback.")
+            else:
+                with st.spinner("Applying refinements..."):
+                    try:
+                        result = apply_suggestions(
+                            style_text=current["style"],
+                            lyrics_text=current["lyrics"],
+                            selected_suggestions=selected,
+                            user_feedback=user_feedback,
+                            api_key=st.session_state.api_key,
+                            is_jazz=is_jazz,
+                            genre=st.session_state.genre,
+                            mood=st.session_state.mood,
+                            profile=st.session_state.profile,
+                        )
+
+                        # Save new version
+                        new_version = {
+                            "version": current_version + 1,
+                            "style": result["refined_style"],
+                            "lyrics": result["refined_lyrics"],
+                            "suggestions_shown": list(st.session_state.iter_suggestions),
+                            "suggestions_applied": [s["id"] for s in selected],
+                            "user_feedback": user_feedback,
+                        }
+                        st.session_state.iter_versions.append(new_version)
+
+                        # Auto-analyze new version
+                        new_suggestions = generate_suggestions(
+                            style_text=result["refined_style"],
+                            lyrics_text=result["refined_lyrics"],
+                            api_key=st.session_state.api_key,
+                            is_jazz=is_jazz,
+                            genre=st.session_state.genre,
+                            mood=st.session_state.mood,
+                            profile=st.session_state.profile,
+                            iteration_history=st.session_state.iter_versions,
+                        )
+                        st.session_state.iter_suggestions = new_suggestions
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Apply failed: {e}")
+
+        # Handle Re-analyze (same version, fresh suggestions)
+        if analyze_again:
+            with st.spinner("Re-analyzing..."):
+                try:
+                    suggestions = generate_suggestions(
+                        style_text=current["style"],
+                        lyrics_text=current["lyrics"],
+                        api_key=st.session_state.api_key,
+                        is_jazz=is_jazz,
+                        genre=st.session_state.genre,
+                        mood=st.session_state.mood,
+                        profile=st.session_state.profile,
+                        iteration_history=st.session_state.iter_versions,
+                    )
+                    st.session_state.iter_suggestions = suggestions
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Analysis failed: {e}")
+
+        # Handle Accept & Close
+        if accept_close:
+            final = st.session_state.iter_versions[-1]
+            st.session_state.style_output = final["style"]
+            st.session_state.lyrics_output = final["lyrics"]
+            st.session_state.iter_active = False
+            st.session_state.iter_suggestions = []
+            st.session_state.iter_versions = []
+            save_current_session()
             st.rerun()
 
-    with col_save:
-        if st.button("Save", use_container_width=True):
-            if song_title:
-                # Capture ALL state for complete restoration
-                settings = {
-                    # Music Foundation
-                    "genre": selected_genre,
-                    "key": selected_key,
-                    "mode": selected_mode,
-                    "tempo": selected_tempo,
-                    "time_sig": selected_time_sig,
-                    "mood": selected_mood,
+        # Version History
+        if len(st.session_state.iter_versions) > 1:
+            with st.expander("Version History"):
+                for v in st.session_state.iter_versions:
+                    ver_num = v["version"]
+                    label = "Original" if ver_num == 0 else f"Version {ver_num}"
 
-                    # Options (for all genres)
-                    "style_preset": selected_preset,
-                    "style_influence": selected_influence,
-                    "progression": selected_progression,
-                    "harmonic_rhythm": selected_harmonic_rhythm,
-                    "extensions": selected_extensions,
+                    # Show applied suggestions in label
+                    if v.get("suggestions_applied"):
+                        applied_titles = []
+                        for s in v.get("suggestions_shown", []):
+                            if s.get("id") in v["suggestions_applied"]:
+                                applied_titles.append(s.get("title", ""))
+                        if applied_titles:
+                            short = ", ".join(applied_titles[:2])
+                            if len(applied_titles) > 2:
+                                short += "..."
+                            label += f" ({short})"
 
-                    # Song Structure
-                    "sections": st.session_state.sections,
+                    if v.get("user_feedback"):
+                        label += f' + "{v["user_feedback"][:30]}..."'
 
-                    # Sidebar options
-                    "use_llm": use_llm,
-                    "replace_guitar": replace_guitar,
-                    "auto_fill_sections": auto_fill_sections,
-                    "lyrics_sync_mode": st.session_state.get("lyrics_sync_mode", "Smart merge"),
+                    if st.button(label, key=f"iter_ver_{ver_num}"):
+                        # Revert to this version
+                        st.session_state.iter_versions = st.session_state.iter_versions[:ver_num + 1]
+                        with st.spinner("Re-analyzing..."):
+                            try:
+                                suggestions = generate_suggestions(
+                                    style_text=v["style"],
+                                    lyrics_text=v["lyrics"],
+                                    api_key=st.session_state.api_key,
+                                    is_jazz=is_jazz,
+                                    genre=st.session_state.genre,
+                                    mood=st.session_state.mood,
+                                    profile=st.session_state.profile,
+                                    iteration_history=st.session_state.iter_versions,
+                                )
+                                st.session_state.iter_suggestions = suggestions
+                            except Exception as e:
+                                st.error(f"Analysis failed: {e}")
+                        st.rerun()
 
-                    # Lyrics content
-                    "suno_lyrics": suno_lyrics,
-                    "lyric_template": selected_lyric_template,
-                }
+    # ==========================================================================
+    # SAVE SONG
+    # ==========================================================================
 
-                # Use refined outputs if available
-                style_to_save = st.session_state.get("refined_style", st.session_state.generated_style)
-                lyrics_to_save = st.session_state.get("refined_lyrics", st.session_state.generated_lyrics)
+    st.divider()
+    st.subheader("Save Song")
 
-                save_song(song_title, settings, style_to_save, lyrics_to_save)
-                st.success(f"Saved: {song_title}")
-                st.rerun()
+    save_col1, save_col2 = st.columns([3, 1])
+    with save_col1:
+        default_title = st.session_state.get("suggested_title", "")
+        song_title = st.text_input("Song Title", value=default_title, key="w_song_title")
+    with save_col2:
+        st.write("")  # spacing
+        if st.button("Save to History", use_container_width=True):
+            if not song_title:
+                st.warning("Enter a title first.")
             else:
-                st.warning("Enter a title to save")
+                settings = {
+                    "genre": st.session_state.genre,
+                    "key": st.session_state.key,
+                    "mode": st.session_state.mode,
+                    "tempo": st.session_state.tempo,
+                    "time_sig": st.session_state.time_sig,
+                    "mood": st.session_state.mood,
+                    "style_preset": st.session_state.style_preset,
+                    "style_influence": st.session_state.style_influence,
+                    "progression": st.session_state.progression,
+                    "harmonic_rhythm": st.session_state.harmonic_rhythm,
+                    "extensions": st.session_state.extensions,
+                    "profile": st.session_state.profile,
+                    "sections": st.session_state.sections,
+                }
+                save_song(
+                    title=song_title,
+                    settings=settings,
+                    style_output=st.session_state.style_output,
+                    lyrics_output=st.session_state.lyrics_output,
+                )
+                st.success(f"Saved: {song_title}")
+                save_current_session()
+
 
 # =============================================================================
 # AUTO-SAVE WORKING SESSION
 # =============================================================================
 
-# Build complete working state from all current widget values
-_working_state = {
-    # Music Foundation
-    "genre": selected_genre,
-    "key": selected_key,
-    "mode": selected_mode,
-    "tempo": selected_tempo,
-    "time_sig": selected_time_sig,
-    "mood": selected_mood,
-
-    # Options
-    "style_preset": selected_preset,
-    "style_influence": selected_influence,
-    "progression": selected_progression,
-    "harmonic_rhythm": selected_harmonic_rhythm,
-    "extensions": selected_extensions,
-
-    # Song Structure
-    "sections": st.session_state.sections,
-
-    # Sidebar options
-    "use_llm": use_llm,
-    "replace_guitar": replace_guitar,
-    "auto_fill_sections": auto_fill_sections,
-    "lyrics_sync_mode": st.session_state.get("lyrics_sync_mode", "Smart merge"),
-
-    # Lyrics
-    "suno_lyrics": suno_lyrics,
-    "lyric_template": selected_lyric_template,
-
-    # Generated outputs (if any)
-    "generated_style": st.session_state.get("generated_style", ""),
-    "generated_lyrics": st.session_state.get("generated_lyrics", ""),
-    "refined_style": st.session_state.get("refined_style", ""),
-    "refined_lyrics": st.session_state.get("refined_lyrics", ""),
-}
-
-# Save working session (auto-save on every render)
-save_working_session(_working_state)
+save_current_session()

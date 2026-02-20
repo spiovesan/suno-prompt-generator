@@ -1,6 +1,6 @@
 """
 Unified data for Suno Prompt Studio.
-Combines legacy jazz-specific data with universal genre support.
+Combines prompt_generator (jazz-specific) and workflow_builder (universal) data.
 """
 
 # =============================================================================
@@ -18,7 +18,7 @@ GENRES = [
     "House",
     "Techno",
     "Ambient",
-    "Meditation",
+    "Meditation",  # Healing, relaxation, spa music
     "Classical",
     "Country",
     "Folk",
@@ -38,10 +38,10 @@ GENRES = [
 ]
 
 # =============================================================================
-# JAZZ-SPECIFIC: STYLE PRESETS
-# STRICTLY quartet only: guitar (lead), piano (comping), bass, drums
-# Guitar is the primary melodic/lead instrument, piano provides harmonic support
+# JAZZ-SPECIFIC (from prompt_generator)
 # =============================================================================
+
+# Jazz style presets - strictly quartet: guitar (lead), piano (comping), bass, drums
 STYLE_PRESETS = {
     "Smooth Jazz": (
         "smooth jazz quartet, jazz guitar lead melody, "
@@ -142,36 +142,7 @@ STYLE_PRESETS = {
 # Keep original for backwards compatibility
 BASE_PROMPT = STYLE_PRESETS["Smooth Jazz"]
 
-# =============================================================================
-# JAZZ-SPECIFIC: KEY SIGNATURES (with modal implications)
-# =============================================================================
-KEY_SIGNATURES = {
-    "None": "",
-    "C major": "in C major, bright Ionian clarity",
-    "G major": "in G major, open pastoral Ionian",
-    "D major": "in D major, bright and warm",
-    "A major": "in A major, brilliant and uplifting",
-    "E major": "in E major, bright and resonant",
-    "F major": "in F major, warm Lydian-tinged",
-    "Bb major": "in Bb major, warm jazz standard key",
-    "Eb major": "in Eb major, classic jazz key, rich",
-    "Ab major": "in Ab major, lush and romantic",
-    "Db major": "in Db major, dreamy Lydian colors",
-    "D Dorian": "in D Dorian mode, minor with raised 6th, jazz minor feel",
-    "A Dorian": "in A Dorian mode, cool minor jazz color",
-    "E Phrygian": "in E Phrygian mode, Spanish-tinged, dark exotic",
-    "F Lydian": "in F Lydian mode, bright raised 4th, dreamy",
-    "G Mixolydian": "in G Mixolydian mode, dominant feel, bluesy",
-    "A minor": "in A minor, Aeolian melancholy",
-    "D minor": "in D minor, dark and passionate",
-    "E minor": "in E minor, somber and reflective",
-    "G minor": "in G minor, dramatic and emotional",
-    "C minor": "in C minor, intense and stormy",
-}
-
-# =============================================================================
-# JAZZ-SPECIFIC: STYLE INFLUENCES (guitar as lead focus)
-# =============================================================================
+# Jazz style influences - guitar as lead focus
 STYLE_INFLUENCES = {
     "None": "",
     "1959 Modal Cool": "late 50s modal jazz, guitar plays So What theme, quartal harmony, spacious guitar phrasing",
@@ -190,318 +161,19 @@ STYLE_INFLUENCES = {
     "Gritty Blues-Funk": "gritty guitar tone, bluesy bends, funky comping, raw energy guitar lead",
 }
 
-# =============================================================================
-# JAZZ-SPECIFIC: TEMPO VARIATIONS
-# =============================================================================
-TEMPO_VARIATIONS = {
-    "None": "",
-    "Slow (60-80 BPM)": "slow tempo, around 70 BPM, space for guitar expression",
-    "Medium (80-110 BPM)": "medium tempo, around 95 BPM, relaxed swing feel",
-    "Uptempo (110-130 BPM)": "uptempo, around 120 BPM, driving energy",
-    "Fast (130+ BPM)": "fast tempo, energetic pace, virtuosic guitar",
-}
-
-# =============================================================================
-# MOOD VARIATIONS (jazz legacy + 4 new universal moods)
-# =============================================================================
-MOOD_VARIATIONS = {
-    "None": "",
-    "Mellow": "mellow, relaxed atmosphere, smooth guitar tone",
-    "Intimate": "intimate, soft dynamics, delicate guitar touch",
-    "Uplifting": "uplifting, positive energy, bright guitar melody",
-    "Energetic": "energetic, driving intensity, aggressive guitar attack",
-    "Melancholic": "melancholic, emotional depth, weeping guitar lines",
-    "Dreamy": "dreamy, floating atmosphere, reverb-laden guitar",
-    "Dark": "dark, brooding atmosphere, minor guitar phrases",
-    "Searching": "searching, harmonic tension, exploratory guitar lines",
-    "Calm": "calm, serene, peaceful atmosphere",
-    "Focused": "focused, concentrated, steady energy",
-    "Relaxed": "relaxed, easy-going, comfortable flow",
-    "Creative": "creative, inspired, playful exploration",
-}
-
-# =============================================================================
-# JAZZ-SPECIFIC: INTRO VARIATIONS
-# =============================================================================
-INTRO_VARIATIONS = {
-    "None": "",
-    "Guitar intro": "solo guitar intro, unaccompanied melody, band enters gradually",
-    "Guitar chords intro": "guitar chord intro with arpeggios, rhythm section joins",
-    "Ambient/Sparse": "atmospheric sparse intro, guitar harmonics, building arrangement",
-    "Bass and guitar": "bass and guitar duo intro, piano and drums enter later",
-    "Rubato guitar": "rubato guitar intro, free tempo, expressive bends",
-    "Full band": "full quartet from the start, guitar states theme immediately",
-}
-
-# =============================================================================
-# JAZZ-SPECIFIC: HARMONY OPTIONS (Suno bracket tags)
-# =============================================================================
-
-# Chord progression complexity
-PROGRESSION_TYPES = {
-    "None": "",
-    "Complex Jazz": "[complex chord progression, jazz influences, extended harmonies]",
-    "Dynamic Movement": "[dynamic chord progression, evolving structure]",
-    "ii-V-I Changes": "[ii-V-I progression, bebop changes, guide tone movement]",
-    "Giant Steps": "[complex progression, ascending minor thirds, giant steps harmony]",
-    "Modal Vamp": "[modal vamp, pedal point, one-chord ostinato]",
-    "Tritone Subs": "[tritone substitutions, chromatic bass, altered dominants]",
-    "Quartal Voicings": "[quartal harmony, stacked fourths, open voicings]",
-    "Blues Changes": "[jazz blues progression, I-IV-V turnaround, blue notes]",
-    "Rich & Evolving": "[dynamic and complex chord progression, emotional depth]",
-}
-
-# How often chords change
-HARMONIC_RHYTHM = {
-    "None": "",
-    "Static Vamp": "[static harmony, drone bass, minimal chord movement]",
-    "Slow Changes": "[slow harmonic rhythm, sustained chords, spacious]",
-    "Medium Flow": "[medium harmonic rhythm, chord changes per bar]",
-    "Fast Changes": "[fast harmonic rhythm, rapid chord movement, bebop feel]",
-}
-
-# Chord voicing complexity
-CHORD_EXTENSIONS = {
-    "None": "",
-    "7th Chords": "[seventh chords, maj7 min7 dom7 voicings]",
-    "Extended 9ths/11ths": "[extended harmonies, 9th chords, 11th chords, rich voicings]",
-    "Altered Tensions": "[altered dominants, sharp 9, flat 13, tension-rich harmony]",
-    "Quartal/Sus": "[quartal voicings, sus4 sus2, open harmony]",
-    "Sophisticated": "[sophisticated harmony, complex chords, jazz voicings]",
-}
-
-# =============================================================================
-# JAZZ-SPECIFIC: GUITAR STEM REPLACEMENT
-# =============================================================================
-GUITAR_REPLACE_REMOVE = ["fusion", "lead piano", "expressive soloist", "piano solo",
-                         "keyboard solo", "piano melody", "piano lead"]
-GUITAR_REPLACE_APPEND = ("guitar is always the primary melodic voice, "
-                         "other instruments provide only harmonic and rhythmic support")
-
-# =============================================================================
-# JAZZ-SPECIFIC: LYRIC TEMPLATES
-# =============================================================================
-LYRIC_TEMPLATES = {
-    "None": "",
-    "Anti-Listening (Controlled)": (
-        "[Opening Field]\n"
-        "(intervallic harmonic block, no tonal center)\n"
-        "(chromatic vertical cluster, avoid triadic harmony)\n"
-        "(non-functional harmony, no root motion)\n"
-        "\n"
-        "[Primary Material]\n"
-        "(fragmented thematic cell, harmonic displacement)\n"
-        "(asymmetric phrase length, tonal center displaced)\n"
-        "(fragmented thematic cell, chromatic instability)\n"
-        "\n"
-        "[Transition]\n"
-        "(abrupt harmonic interruption)\n"
-        "(abrupt harmonic interruption)\n"
-        "\n"
-        "[Thematic Field]\n"
-        "(intervallic harmonic block, avoid triadic harmony)\n"
-        "(non-parallel harmonic shift, no functional root motion)\n"
-        "(chromatic vertical cluster, unstable harmonic field)\n"
-        "\n"
-        "[Instrumental Break]\n"
-        "(lead guitar solo, angular phrasing, harmony remains unstable)\n"
-        "(lead guitar solo, sparse gestures, vertical harmony emphasis)\n"
-        "\n"
-        "[Final Field]\n"
-        "(harmonic field transforms, still no tonal center)\n"
-        "(chromatic suspension, no cadence)\n"
-        "\n"
-        "[Outro]\n"
-        "(harmonic suspension, unresolved ending)"
-    ),
-    "Anti-Tonal (Hard)": (
-        "[Opening Field]\n"
-        "(intervallic material, no tonal grounding)\n"
-        "(chromatic displacement, avoid triadic harmony)\n"
-        "(non-functional vertical harmony)\n"
-        "\n"
-        "[Material Field A]\n"
-        "(fragmented thematic cell, rotating tonal center)\n"
-        "(intervallic displacement, asymmetric phrasing)\n"
-        "(fragmented thematic cell, no resolution)\n"
-        "\n"
-        "[Interruption]\n"
-        "(abrupt harmonic cut)\n"
-        "(abrupt harmonic cut)\n"
-        "\n"
-        "[Material Field B]\n"
-        "(chromatic vertical cluster, no functional root motion)\n"
-        "(non-parallel harmonic shift, tonal center displaced)\n"
-        "(intervallic tension, unstable harmonic field)\n"
-        "\n"
-        "[Development Field]\n"
-        "(thematic fragments recombined, increased instability)\n"
-        "(chromatic expansion, no repetition)\n"
-        "(intervallic tension, no tonal center)\n"
-        "\n"
-        "[Instrumental Break]\n"
-        "(lead guitar solo, angular phrasing, harmony remains unstable)\n"
-        "(lead guitar solo, physically playable but uncomfortable)\n"
-        "(lead guitar solo, rests used as tension)\n"
-        "\n"
-        "[Post-Solo Field]\n"
-        "(clean guitar texture returns, non-functional harmony)\n"
-        "(intervallic displacement continues)\n"
-        "\n"
-        "[Outro]\n"
-        "(open harmonic field, unresolved)"
-    ),
-    "Radical / Anti-Musical": (
-        "[Disorientation]\n"
-        "(intervallic harmonic block, no tonal center)\n"
-        "(chromatic vertical cluster, avoid triadic harmony)\n"
-        "(non-functional harmony, no root motion)\n"
-        "\n"
-        "[Fragment Field]\n"
-        "(fragmented cell, harmonic displacement)\n"
-        "(fragmented cell, chromatic instability)\n"
-        "(fragmented cell, asymmetric phrase length)\n"
-        "\n"
-        "[Void]\n"
-        "(silence or sustained texture, harmonic suspension)\n"
-        "(silence or sustained texture, harmonic suspension)\n"
-        "\n"
-        "[Instability Field]\n"
-        "(non-parallel harmonic blocks, no progression)\n"
-        "(intervallic collision, tonal center erased)\n"
-        "(chromatic vertical mass, no functional grounding)\n"
-        "\n"
-        "[Instrumental Break]\n"
-        "(lead guitar solo, sparse angular gestures)\n"
-        "(lead guitar solo, physical but intentionally awkward)\n"
-        "(lead guitar solo, harmony resists normalization)\n"
-        "\n"
-        "[Collapse Field]\n"
-        "(clean guitar texture, harmonic field deteriorates)\n"
-        "(intervallic residue, no closure)\n"
-        "\n"
-        "[Outro]\n"
-        "(abrupt or unresolved ending)"
-    ),
-    "Pulse Field": (
-        "[Opening]\n"
-        "(pulse established, no tonal center)\n"
-        "\n"
-        "[Pulse Field]\n"
-        "(persistent pulse, non-functional harmony)\n"
-        "(persistent pulse, intervallic displacement)\n"
-        "(persistent pulse, avoid triadic harmony)\n"
-        "\n"
-        "[Thematic Friction]\n"
-        "(fragmented material, pulse maintained)\n"
-        "(harmonic tension increases, pulse unchanged)\n"
-        "\n"
-        "[Pulse Field]\n"
-        "(pulse continues, tonal center rotates)\n"
-        "(pulse altered, harmonic instability)\n"
-        "\n"
-        "[Instrumental Break]\n"
-        "(lead guitar solo, phrasing pushes against pulse)\n"
-        "(lead guitar solo, angular lines, no resolution)\n"
-        "(lead guitar solo, harmony resists normalization)\n"
-        "\n"
-        "[Final Pulse]\n"
-        "(pulse weakens, harmonic field unstable)\n"
-        "(pulse fragments)\n"
-        "\n"
-        "[Outro]\n"
-        "(pulse stops abruptly, unresolved)"
-    ),
-}
-
-# =============================================================================
-# UNIVERSAL: KEY / MODE / TIME SIGNATURE
-# =============================================================================
-
-# Note names (chromatic)
-NOTE_NAMES = ["None", "C", "C#", "Db", "D", "Eb", "E", "F", "F#", "Gb", "G", "Ab", "A", "Bb", "B"]
-
-# Key quality — determines which modes are available
-KEY_QUALITIES = ["Major", "Minor", "Minor Maj7"]
-
-# Modes filtered by key quality
-MAJOR_MODES = {
-    "None": "",
-    "Ionian (Major)": "Ionian",
-    "Lydian": "Lydian",
-    "Mixolydian": "Mixolydian",
-}
-
-MINOR_MODES = {
-    "None": "",
-    "Aeolian (Natural Minor)": "Aeolian",
-    "Dorian": "Dorian",
-    "Phrygian": "Phrygian",
-    "Locrian": "Locrian",
-    "Harmonic Minor": "Harmonic Minor",
-    "Melodic Minor": "Melodic Minor",
-}
-
-# All modes (for backward compat and Jazz KEY_SIGNATURES path)
-MODES = {
-    "None": "",
-    "Ionian (Major)": "Ionian", "Dorian": "Dorian", "Phrygian": "Phrygian",
-    "Lydian": "Lydian", "Mixolydian": "Mixolydian",
-    "Aeolian (Natural Minor)": "Aeolian", "Locrian": "Locrian",
-    "Harmonic Minor": "Harmonic Minor", "Melodic Minor": "Melodic Minor",
-    "Whole Tone": "Whole Tone", "Diminished": "Diminished",
-    "Blues Scale": "Blues",
-}
-
-# Legacy dicts kept for key value resolution in generator
-MAJOR_KEYS = {
-    "None": "", "C Major": "C", "C# Major": "C#", "D Major": "D",
-    "Eb Major": "Eb", "E Major": "E", "F Major": "F",
-    "F# Major": "F#", "G Major": "G", "Ab Major": "Ab",
-    "A Major": "A", "Bb Major": "Bb", "B Major": "B",
-}
-
-MINOR_KEYS = {
-    "None": "", "C Minor": "Cm", "C# Minor": "C#m", "D Minor": "Dm",
-    "Eb Minor": "Ebm", "E Minor": "Em", "F Minor": "Fm",
-    "F# Minor": "F#m", "G Minor": "Gm", "Ab Minor": "Abm",
-    "A Minor": "Am", "Bb Minor": "Bbm", "B Minor": "Bm",
-}
-
-TIME_SIGNATURES = ["4/4", "3/4", "6/8", "5/4", "7/8", "12/8"]
-
-# =============================================================================
-# UNIVERSAL: SONG STRUCTURE
-# =============================================================================
-SECTION_TYPES = [
-    "Intro", "Verse", "Pre-Chorus", "Chorus", "Post-Chorus",
-    "Bridge", "Instrumental Break", "Solo", "Breakdown",
-    "Build", "Drop", "Outro"
-]
-
-DEFAULT_SECTIONS = [
-    {"type": "Intro", "instruments": ""},
-    {"type": "Verse", "instruments": ""},
-    {"type": "Chorus", "instruments": ""},
-    {"type": "Bridge", "instruments": ""},
-    {"type": "Outro", "instruments": ""},
-]
-
-# =============================================================================
-# UNIVERSAL: AUDIO QUALITY TEMPLATE (static abbreviated version)
-# =============================================================================
-AUDIO_QUALITY_TEMPLATE = "studio quality, well mastered, clean mix, warm presence, crisp highs"
-
-
-# =============================================================================
-# HELPER FUNCTIONS
-# =============================================================================
 
 def get_genre_preset_names(genre: str) -> dict:
-    """For Jazz: return STYLE_PRESETS. For others: return generic presets."""
+    """
+    Get style preset names for the selected genre.
+
+    For Jazz, returns original names (Smooth Jazz, Bebop, etc.)
+    For other genres, returns simplified generic names (Smooth, Fusion, etc.)
+    """
     if genre == "Jazz":
         return STYLE_PRESETS
-    return {
+
+    # Generic preset names for non-Jazz genres (without genre suffix)
+    generic_presets = {
         "None": "",
         "Smooth": "smooth, relaxed, warm tones, gentle dynamics",
         "Fusion": "fusion elements, complex arrangements, dynamic contrasts",
@@ -518,63 +190,325 @@ def get_genre_preset_names(genre: str) -> dict:
         "Radical": "radical, unconventional, challenging, avant-garde",
     }
 
+    return generic_presets
+
 
 def resolve_preset_value(preset_name: str, genre: str) -> str:
-    """Resolve a preset name to its descriptive value."""
-    if genre == "Jazz":
-        return STYLE_PRESETS.get(preset_name, "")
+    """
+    Resolve a preset name to its value.
+
+    Args:
+        preset_name: The display name
+        genre: The current genre
+
+    Returns:
+        The preset value/description
+    """
+    # Get the presets dict for this genre
     presets = get_genre_preset_names(genre)
-    return presets.get(preset_name, "")
 
+    if preset_name in presets:
+        return presets[preset_name]
 
-def get_genre_influence_names(genre: str) -> dict:
-    """For Jazz: return STYLE_INFLUENCES. For others: return generic influences."""
-    if genre == "Jazz":
-        return STYLE_INFLUENCES
-    return {
-        "None": "",
-        "Lyrical Melodic": "lyrical melodies, singing tone, open voicings, warm harmonics",
-        "World Fusion": "world music fusion, unusual scales, polychordal support",
-        "Impressionist": "impressionistic feel, parallel chord movement, whole tone colors, dreamy",
-        "Gritty Blues": "gritty tone, bluesy bends, raw energy",
-        "Neo-Soul": "neo-soul feel, smooth lead, minor 9th vamps, laid-back",
-        "Cinematic": "cinematic, orchestral, sweeping, dramatic",
-        "Vintage": "vintage production, analog warmth, retro aesthetic",
-        "Modern Electronic": "modern electronic elements, digital textures, crisp production",
-    }
+    # Fallback
+    return ""
 
 
 def resolve_influence_value(influence_name: str, genre: str) -> str:
-    """Resolve influence name to value."""
-    if genre == "Jazz":
-        return STYLE_INFLUENCES.get(influence_name, "")
-    influences = get_genre_influence_names(genre)
-    return influences.get(influence_name, "")
+    """
+    Resolve an influence name to its value, handling genre-adapted names.
 
-
-def get_modes_for_quality(quality: str) -> dict:
-    """Return appropriate modes dict based on key quality.
+    Args:
+        influence_name: The display name
+        genre: The current genre
 
     Returns:
-        Dict of mode_name -> mode_value. Empty dict for Minor Maj7 (no mode selection).
+        The influence value/description
     """
-    if quality == "Minor Maj7":
-        return {}
-    if quality == "Minor":
+    # Get the appropriate influences dict for the genre
+    influences = get_genre_influence_names(genre)
+    if influence_name in influences:
+        return influences[influence_name]
+
+    # Fallback
+    return ""
+
+
+def get_genre_influence_names(genre: str) -> dict:
+    """
+    Get style influence names adapted to the selected genre.
+
+    For Jazz, returns original jazz-specific influences.
+    For other genres, returns universal influences that work across genres.
+    """
+    if genre == "Jazz":
+        return STYLE_INFLUENCES
+
+    # Universal influences that work for any genre
+    universal_influences = {
+        "None": "",
+        "1959 Modal Cool": "modal harmony, quartal voicings, spacious phrasing",
+        "70s Electric Funk": "1970s electric funk, wah riffs, chromatic bass, extended 9th chords",
+        "Lyrical Melodic": "lyrical melodies, singing tone, open voicings, warm harmonics",
+        "World Fusion": "world fusion rhythms, unusual scales, polychordal support",
+        "Impressionist Harmony": "impressionistic feel, parallel chord movement, whole tone colors, dreamy",
+        "Spiritual Intensity": "spiritual intensity, searching improvisation, transcendent building",
+        "Latin Virtuoso": "virtuosic Latin influence, fast runs, altered dominants",
+        "Solo Featured": "solo instrument featured, rubato phrasing, rich voicings",
+        "Modern Collective": "modern collective groove, interlocking parts, slash chords",
+        "Neo-Soul Smooth": "neo-soul influence, smooth lead, minor 9th vamps, laid-back",
+        "Contemporary Trio": "contemporary trio feel, melodic, flowing ninths, conversational",
+        "Dialogue Style": "conversational style, call and response, harmonic interplay",
+        "Gritty Blues-Funk": "gritty tone, bluesy bends, funky comping, raw energy",
+    }
+
+    return universal_influences
+
+
+# Chord progression complexity - uses Suno bracket tags
+PROGRESSION_TYPES = {
+    "None": "",
+    "Complex Jazz": "[complex chord progression, jazz influences, extended harmonies]",
+    "Dynamic Movement": "[dynamic chord progression, evolving structure]",
+    "ii-V-I Changes": "[ii-V-I progression, bebop changes, guide tone movement]",
+    "Giant Steps": "[complex progression, ascending minor thirds, giant steps harmony]",
+    "Modal Vamp": "[modal vamp, pedal point, one-chord ostinato]",
+    "Tritone Subs": "[tritone substitutions, chromatic bass, altered dominants]",
+    "Quartal Voicings": "[quartal harmony, stacked fourths, open voicings]",
+    "Blues Changes": "[jazz blues progression, I-IV-V turnaround, blue notes]",
+    "Rich & Evolving": "[dynamic and complex chord progression, emotional depth]",
+}
+
+# Harmonic rhythm options
+HARMONIC_RHYTHM = {
+    "None": "",
+    "Static Vamp": "[static harmony, drone bass, minimal chord movement]",
+    "Slow Changes": "[slow harmonic rhythm, sustained chords, spacious]",
+    "Medium Flow": "[medium harmonic rhythm, chord changes per bar]",
+    "Fast Changes": "[fast harmonic rhythm, rapid chord movement, bebop feel]",
+}
+
+# Chord extension options
+CHORD_EXTENSIONS = {
+    "None": "",
+    "7th Chords": "[seventh chords, maj7 min7 dom7 voicings]",
+    "Extended 9ths/11ths": "[extended harmonies, 9th chords, 11th chords, rich voicings]",
+    "Altered Tensions": "[altered dominants, sharp 9, flat 13, tension-rich harmony]",
+    "Quartal/Sus": "[quartal voicings, sus4 sus2, open harmony]",
+    "Sophisticated": "[sophisticated harmony, complex chords, jazz voicings]",
+}
+
+# Guitar stem replacement mode
+GUITAR_REPLACE_REMOVE = ["fusion", "lead piano", "expressive soloist", "piano solo",
+                         "keyboard solo", "piano melody", "piano lead"]
+GUITAR_REPLACE_APPEND = ("guitar is always the primary melodic voice, "
+                         "other instruments provide only harmonic and rhythmic support")
+
+# =============================================================================
+# UNIVERSAL (from workflow_builder)
+# =============================================================================
+
+# Major keys with emotional descriptions
+MAJOR_KEYS = {
+    "C Major": "Pure, open, neutral, balanced (clean pop, folk, beginner-friendly)",
+    "G Major": "Warm, natural, uplifting (country, Americana, classic rock)",
+    "D Major": "Triumphant, regal, bold (orchestral, rock ballads, anthemic)",
+    "A Major": "Bright, confident, joyful (pop rock, upbeat country, singalongs)",
+    "E Major": "Brash, energetic, exciting (rock, blues, aggressive pop)",
+    "B Major": "Radiant, assertive, polished (gospel, R&B, cinematic)",
+    "F Major": "Pastoral, calm, gentle (classical, singer-songwriter, soft rock)",
+    "Bb Major": "Noble, rich, full (jazz, brass-heavy arrangements, classical)",
+    "Eb Major": "Lush, mellow, expressive (soul, funk, ballads)",
+}
+
+# Minor keys with emotional descriptions
+MINOR_KEYS = {
+    "A Minor": "Sad, introspective, sincere (acoustic ballads, emo, lo-fi)",
+    "E Minor": "Haunting, melancholic, mysterious (metal, alt rock, cinematic)",
+    "D Minor": "Dramatic, tragic, emotional (classical, folk noir, film scoring)",
+    "B Minor": "Dark, brooding, poetic (indie, alt-pop, gothic rock)",
+    "F# Minor": "Tense, sorrowful, expressive (experimental, downbeat pop, EDM)",
+    "C# Minor": "Ethereal, romantic, haunting (dream pop, ambient, solo piano)",
+    "G Minor": "Bold, mournful, stormy (classical, jazz, moody pop)",
+}
+
+# Musical modes
+MODES = {
+    "Ionian (Major)": {
+        "mood": "Bright, happy, stable",
+        "feel": "Optimistic, confident",
+        "genres": "Pop, country, classical, folk, children's music",
+    },
+    "Dorian": {
+        "mood": "Cool, soulful, moody but hopeful",
+        "feel": "A minor scale with a jazzy or gospel uplift",
+        "genres": "Funk, soul, gospel, R&B, jazz, Celtic folk",
+    },
+    "Phrygian": {
+        "mood": "Dark, exotic, tense",
+        "feel": "Intense, dramatic",
+        "genres": "Flamenco, metal, Middle Eastern, Spanish-influenced",
+    },
+    "Lydian": {
+        "mood": "Dreamy, ethereal, expansive",
+        "feel": "Bright but floaty, surreal",
+        "genres": "Film scores, dream pop, progressive rock, fusion",
+    },
+    "Mixolydian": {
+        "mood": "Gritty, bluesy, relaxed confidence",
+        "feel": "Like major, but more swagger",
+        "genres": "Blues, rock, country, funk, jam band music",
+    },
+    "Aeolian (Minor)": {
+        "mood": "Sad, introspective, dramatic",
+        "feel": "Classic minor feel with emotional pull",
+        "genres": "Alt rock, ballads, EDM, cinematic, folk",
+    },
+    "Locrian": {
+        "mood": "Unsettling, chaotic, unresolved",
+        "feel": "Darkest mode, diminished tonic makes it unstable",
+        "genres": "Experimental, avant-garde, some black metal",
+    },
+}
+
+# Modes grouped by key quality (for filtering)
+MAJOR_MODES = ["Ionian (Major)", "Lydian", "Mixolydian"]
+MINOR_MODES = ["Dorian", "Phrygian", "Aeolian (Minor)"]
+
+
+def get_modes_for_key_quality(is_major: bool) -> list:
+    """
+    Get modes appropriate for major or minor key quality.
+
+    Args:
+        is_major: True for major keys, False for minor keys
+
+    Returns:
+        List of mode names appropriate for the key quality
+    """
+    if is_major:
+        return MAJOR_MODES
+    else:
         return MINOR_MODES
-    return MAJOR_MODES
 
 
-def resolve_key_value(note: str, quality: str) -> str:
-    """Build the key value string for generation from note + quality.
+# Time signatures
+TIME_SIGNATURES = {
+    "4/4": "Standard, driving, marching (most common)",
+    "3/4": "Waltz, flowing, romantic",
+    "6/8": "Rolling, compound, shuffle feel",
+    "2/4": "March, polka, rapid-fire",
+    "12/8": "Swinging triplets, soulful, gospel groove",
+    "5/4": "Odd, progressive, unsettling",
+    "7/8": "Complex, prog rock, asymmetric",
+}
 
-    Examples: ('D', 'Minor') -> 'D minor', ('C', 'Major') -> 'C major',
-              ('A', 'Minor Maj7') -> 'A minor maj7'
-    """
-    if not note or note == "None":
-        return ""
-    return f"{note} {quality.lower()}"
+# Tempo ranges
+TEMPO_RANGES = {
+    "None": "",
+    "Slow (60-80 BPM)": "Intimate, meditative, slow-burning",
+    "Mid-tempo (80-110 BPM)": "Groovy, versatile, laid-back groove",
+    "Upbeat (110-130 BPM)": "Energetic, punchy and upbeat, driving rhythm",
+    "Fast (130+ BPM)": "High energy, dance, urgency",
+}
 
+# Mood variations
+MOOD_VARIATIONS = {
+    "None": "",
+    "Mellow": "mellow, relaxed atmosphere, smooth tone",
+    "Intimate": "intimate, soft dynamics, delicate touch",
+    "Uplifting": "uplifting, positive energy, bright melody",
+    "Energetic": "energetic, driving intensity, aggressive attack",
+    "Melancholic": "melancholic, emotional depth, weeping lines",
+    "Dreamy": "dreamy, floating atmosphere, reverb-laden",
+    "Dark": "dark, brooding atmosphere, minor phrases",
+    "Searching": "searching, harmonic tension, exploratory lines",
+    "Calm": "calm, peaceful atmosphere, gentle and soothing",
+    "Focused": "focused, clear atmosphere, steady and deliberate",
+    "Relaxed": "relaxed, easygoing atmosphere, comfortable flow",
+    "Creative": "creative, open atmosphere, inspiring and curious",
+}
+
+# Song section types
+SECTION_TYPES = [
+    "Intro",
+    "Verse",
+    "Pre-Chorus",
+    "Chorus",
+    "Post-Chorus",
+    "Bridge",
+    "Breakdown",
+    "Buildup",
+    "Drop",
+    "Solo",
+    "Outro",
+    "Coda",
+]
+
+# Poetic meters for lyrics
+POETIC_METERS = {
+    "Iamb (da-DUM)": {
+        "pattern": "da-DUM",
+        "example": "I walked alone beneath the sky",
+        "feel": "Smooth, natural",
+        "genres": "Pop, folk, ballads",
+    },
+    "Trochee (DA-dum)": {
+        "pattern": "DA-dum",
+        "example": "Shadows fall on ruined stone",
+        "feel": "Forceful, chant-like",
+        "genres": "Rock, gothic, chanty hooks",
+    },
+    "Anapest (da-da-DUM)": {
+        "pattern": "da-da-DUM",
+        "example": "In the dead of the night, I was gone",
+        "feel": "Flowing, builds momentum",
+        "genres": "Rap, gospel, theatrical",
+    },
+    "Dactyl (DA-da-dum)": {
+        "pattern": "DA-da-dum",
+        "example": "Memories fade away from me",
+        "feel": "Rolling, dramatic",
+        "genres": "6/8 or 12/8 feel songs",
+    },
+    "Amphibrach (da-DUM-da)": {
+        "pattern": "da-DUM-da",
+        "example": "I walked along the ruins",
+        "feel": "Balanced yet flowing",
+        "genres": "3/4 or 9/8 feels",
+    },
+}
+
+# Audio quality template
+AUDIO_QUALITY_TEMPLATE = """{genre} audio quality:
+studio quality, fully mastered
+well-balanced highs, mids, and lows
+tight sub-bass, centered and controlled
+punchy low-end with clear kick separation
+warm midrange presence, no boxiness
+crystal-clear leads, minimal reverb, no muddy mix
+vocals upfront and natural, crisp presence with smooth air
+light de-ess on sibilance, gentle saturation only
+short plate reverb with subtle pre-delay, tight slapback delay for space
+double/triple vocal stacks low in mix, clear diction, no over-tuning
+sidechain preserves vocal transients; sub energy never masks vocals
+carved 200–400 Hz for clarity, added 8–12 kHz sheen for sparkle
+dry and polished vocal sound, controlled reverb, sharp transient definition, no distortion
+festival-ready, cinematic, wide stereo field, energetic club mix
+transparent mastering with -1 dBTP ceiling, no pumping on mix bus
+spotless noise floor, no hiss, no artifacts"""
+
+# Default section presets per genre
+DEFAULT_SECTIONS = {
+    "Pop": ["Intro", "Verse", "Pre-Chorus", "Chorus", "Verse", "Chorus", "Bridge", "Chorus", "Outro"],
+    "Rock": ["Intro", "Verse", "Chorus", "Verse", "Chorus", "Solo", "Chorus", "Outro"],
+    "EDM": ["Intro", "Buildup", "Drop", "Breakdown", "Buildup", "Drop", "Outro"],
+    "Hip-Hop": ["Intro", "Verse", "Chorus", "Verse", "Chorus", "Verse", "Outro"],
+    "Jazz": ["Intro", "Verse", "Solo", "Verse", "Solo", "Outro"],
+    "Meditation": ["Intro", "Verse", "Verse", "Bridge", "Verse", "Outro"],
+    "Ambient": ["Intro", "Verse", "Breakdown", "Verse", "Outro"],
+    "default": ["Intro", "Verse", "Chorus", "Verse", "Chorus", "Bridge", "Chorus", "Outro"],
+}
 
 # =============================================================================
 # SECTION INSTRUMENTS - Suggestions by genre, section type, and mood
@@ -861,8 +795,151 @@ def get_section_instruments(genre: str, section_type: str, mood: str = "default"
     Returns:
         String with instrument/mood suggestions for the section
     """
+    # Get genre mapping, fall back to default
     genre_map = SECTION_INSTRUMENTS.get(genre, SECTION_INSTRUMENTS.get("default", {}))
+
+    # Get section mapping
     section_map = genre_map.get(section_type, {})
     if not section_map:
+        # Try default genre if specific genre doesn't have this section
         section_map = SECTION_INSTRUMENTS.get("default", {}).get(section_type, {})
+
+    # Get mood-specific or default
     return section_map.get(mood, section_map.get("default", ""))
+
+# =============================================================================
+# LYRIC TEMPLATES (from prompt_generator)
+# =============================================================================
+
+LYRIC_TEMPLATES = {
+    "None": "",
+    "Anti-Listening (Controlled)": (
+        "[Opening Field]\n"
+        "(intervallic harmonic block, no tonal center)\n"
+        "(chromatic vertical cluster, avoid triadic harmony)\n"
+        "(non-functional harmony, no root motion)\n"
+        "\n"
+        "[Primary Material]\n"
+        "(fragmented thematic cell, harmonic displacement)\n"
+        "(asymmetric phrase length, tonal center displaced)\n"
+        "(fragmented thematic cell, chromatic instability)\n"
+        "\n"
+        "[Transition]\n"
+        "(abrupt harmonic interruption)\n"
+        "(abrupt harmonic interruption)\n"
+        "\n"
+        "[Thematic Field]\n"
+        "(intervallic harmonic block, avoid triadic harmony)\n"
+        "(non-parallel harmonic shift, no functional root motion)\n"
+        "(chromatic vertical cluster, unstable harmonic field)\n"
+        "\n"
+        "[Instrumental Break]\n"
+        "(lead guitar solo, angular phrasing, harmony remains unstable)\n"
+        "(lead guitar solo, sparse gestures, vertical harmony emphasis)\n"
+        "\n"
+        "[Final Field]\n"
+        "(harmonic field transforms, still no tonal center)\n"
+        "(chromatic suspension, no cadence)\n"
+        "\n"
+        "[Outro]\n"
+        "(harmonic suspension, unresolved ending)"
+    ),
+    "Anti-Tonal (Hard)": (
+        "[Opening Field]\n"
+        "(intervallic material, no tonal grounding)\n"
+        "(chromatic displacement, avoid triadic harmony)\n"
+        "(non-functional vertical harmony)\n"
+        "\n"
+        "[Material Field A]\n"
+        "(fragmented thematic cell, rotating tonal center)\n"
+        "(intervallic displacement, asymmetric phrasing)\n"
+        "(fragmented thematic cell, no resolution)\n"
+        "\n"
+        "[Interruption]\n"
+        "(abrupt harmonic cut)\n"
+        "(abrupt harmonic cut)\n"
+        "\n"
+        "[Material Field B]\n"
+        "(chromatic vertical cluster, no functional root motion)\n"
+        "(non-parallel harmonic shift, tonal center displaced)\n"
+        "(intervallic tension, unstable harmonic field)\n"
+        "\n"
+        "[Development Field]\n"
+        "(thematic fragments recombined, increased instability)\n"
+        "(chromatic expansion, no repetition)\n"
+        "(intervallic tension, no tonal center)\n"
+        "\n"
+        "[Instrumental Break]\n"
+        "(lead guitar solo, angular phrasing, harmony remains unstable)\n"
+        "(lead guitar solo, physically playable but uncomfortable)\n"
+        "(lead guitar solo, rests used as tension)\n"
+        "\n"
+        "[Post-Solo Field]\n"
+        "(clean guitar texture returns, non-functional harmony)\n"
+        "(intervallic displacement continues)\n"
+        "\n"
+        "[Outro]\n"
+        "(open harmonic field, unresolved)"
+    ),
+    "Radical / Anti-Musical": (
+        "[Disorientation]\n"
+        "(intervallic harmonic block, no tonal center)\n"
+        "(chromatic vertical cluster, avoid triadic harmony)\n"
+        "(non-functional harmony, no root motion)\n"
+        "\n"
+        "[Fragment Field]\n"
+        "(fragmented cell, harmonic displacement)\n"
+        "(fragmented cell, chromatic instability)\n"
+        "(fragmented cell, asymmetric phrase length)\n"
+        "\n"
+        "[Void]\n"
+        "(silence or sustained texture, harmonic suspension)\n"
+        "(silence or sustained texture, harmonic suspension)\n"
+        "\n"
+        "[Instability Field]\n"
+        "(non-parallel harmonic blocks, no progression)\n"
+        "(intervallic collision, tonal center erased)\n"
+        "(chromatic vertical mass, no functional grounding)\n"
+        "\n"
+        "[Instrumental Break]\n"
+        "(lead guitar solo, sparse angular gestures)\n"
+        "(lead guitar solo, physical but intentionally awkward)\n"
+        "(lead guitar solo, harmony resists normalization)\n"
+        "\n"
+        "[Collapse Field]\n"
+        "(clean guitar texture, harmonic field deteriorates)\n"
+        "(intervallic residue, no closure)\n"
+        "\n"
+        "[Outro]\n"
+        "(abrupt or unresolved ending)"
+    ),
+    "Pulse Field": (
+        "[Opening]\n"
+        "(pulse established, no tonal center)\n"
+        "\n"
+        "[Pulse Field]\n"
+        "(persistent pulse, non-functional harmony)\n"
+        "(persistent pulse, intervallic displacement)\n"
+        "(persistent pulse, avoid triadic harmony)\n"
+        "\n"
+        "[Thematic Friction]\n"
+        "(fragmented material, pulse maintained)\n"
+        "(harmonic tension increases, pulse unchanged)\n"
+        "\n"
+        "[Pulse Field]\n"
+        "(pulse continues, tonal center rotates)\n"
+        "(pulse altered, harmonic instability)\n"
+        "\n"
+        "[Instrumental Break]\n"
+        "(lead guitar solo, phrasing pushes against pulse)\n"
+        "(lead guitar solo, angular lines, no resolution)\n"
+        "(lead guitar solo, harmony resists normalization)\n"
+        "\n"
+        "[Final Pulse]\n"
+        "(pulse weakens, harmonic field unstable)\n"
+        "(pulse fragments)\n"
+        "\n"
+        "[Outro]\n"
+        "(pulse stops abruptly, unresolved)"
+    ),
+}

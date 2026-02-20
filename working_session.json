@@ -1,60 +1,65 @@
 {
-  "genre": "Lo-fi",
-  "key": "C# Minor",
-  "mode": "Dorian",
-  "tempo": "Mid-tempo (80-110 BPM)",
+  "profile": "General Purpose",
+  "genre": "Classical",
+  "key": "D",
+  "key_quality": "Minor Maj7",
+  "mode": "None",
+  "tempo": "None",
   "time_sig": "4/4",
-  "mood": "Mellow",
-  "style_preset": "Modal",
-  "style_influence": "World Fusion",
+  "mood": "Intimate",
+  "style_preset": "Smooth",
+  "style_influence": "None",
   "progression": "Complex Jazz",
-  "harmonic_rhythm": "None",
-  "extensions": "7th Chords",
+  "harmonic_rhythm": "Medium Flow",
+  "extensions": "Altered Tensions",
+  "lyric_template": "Anti-Listening (Controlled)",
+  "suno_lyrics": "",
+  "replace_guitar": false,
+  "use_llm": true,
+  "tech_context": "",
+  "dev_scenario": "None",
   "sections": [
     {
-      "id": 23,
+      "id": 40,
       "type": "Intro",
-      "instruments": "ambient pads, soft piano"
+      "instruments": "ambient pads, white noise undertone, mechanical hum"
     },
     {
-      "id": 24,
+      "id": 41,
       "type": "Verse",
-      "instruments": "acoustic guitar, mellow tone"
+      "instruments": "layered synths, minimal bass, steady pulse"
     },
     {
-      "id": 25,
-      "type": "Verse",
-      "instruments": "full band, high energy"
-    },
-    {
-      "id": 1,
+      "id": 42,
       "type": "Chorus",
-      "instruments": "warm build, gentle crescendo, soft fullness"
+      "instruments": "sustained drones, subtle variations, hypnotic rhythm"
     },
     {
-      "id": 26,
-      "type": "Bridge",
-      "instruments": "synth arpeggios, rising tension"
-    },
-    {
-      "id": 27,
+      "id": 43,
       "type": "Verse",
-      "instruments": "fade out, ambient"
+      "instruments": "brief lift, gentle chimes, mental reset"
     },
     {
-      "id": 28,
+      "id": 44,
+      "type": "Chorus",
+      "instruments": "deeper texture, sustained focus, warm bass"
+    },
+    {
+      "id": 45,
+      "type": "Solo",
+      "instruments": "bright tones, gentle release, affirmative sound"
+    },
+    {
+      "id": 46,
+      "type": "Chorus",
+      "instruments": "Gradual fade of strings, reflective piano, soft woodwind melodies, serene atmosphere"
+    },
+    {
+      "id": 22,
       "type": "Outro",
-      "instruments": "Fading choral voices, soft rain sounds, distant ocean waves"
+      "instruments": "Gradual decrescendo, fading strings, gentle woodwinds, peaceful conclusion"
     }
   ],
-  "use_llm": true,
-  "replace_guitar": false,
-  "auto_fill_sections": true,
-  "lyrics_sync_mode": "Smart merge",
-  "suno_lyrics": "[Verse]\nMeet me in the heart of the forest\nMake a bed of moss on the floor\nShow me where the grass grows tallest\nWhere the greenest leaves are born\nAs long as there are flowers\nI'll stay\nWith you in this quiet place\nTake me back to my roots\nThen I'll take care of you\nThe way I do\n\u00a0\n[Chorus]\nWhen the sun turns the river gold\nAnd you need somewhere safe to go\nCall my name\nAnd I'll take you home\n'Cause you will always be mine to hold\nSo say my name\nAnd I'll take you home\nWhen you need somewhere safe to go\nCall my name\nAnd I'll take you home\n'Cause you will always be mine to hold\nSo say my name\nAnd I'll take you home\n",
-  "lyric_template": "None",
-  "generated_style": "Lo-fi, modal, C# minor, Dorian mode, mid-tempo 90 BPM, mellow and relaxed atmosphere, smooth tone, complex chord progression with jazz influences, extended harmonies, seventh chords, maj7 and min7 voicings, warm vintage textures, mellow beats, nostalgic vibe, organic sound, subtle background samples, ambient world fusion elements, soothing instrumental layers.",
-  "generated_lyrics": "[Style] (Lo-fi, C# Minor, Dorian, Mid-tempo (80-110 BPM))\n\n[Intro: ambient pads, soft piano]\n\n[Verse: acoustic guitar, mellow tone]\nMeet me in the heart of the forest\nMake a bed of moss on the floor\nShow me where the grass grows tallest\nWhere the greenest leaves are born\nAs long as there are flowers\nI'll stay\nWith you in this quiet place\nTake me back to my roots\nThen I'll take care of you\nThe way I do\n\n[Verse: full band, high energy]\n\n[Chorus: warm build, gentle crescendo, soft fullness]\nWhen the sun turns the river gold\nAnd you need somewhere safe to go\nCall my name\nAnd I'll take you home\n'Cause you will always be mine to hold\nSo say my name\nAnd I'll take you home\nWhen you need somewhere safe to go\nCall my name\nAnd I'll take you home\n'Cause you will always be mine to hold\nSo say my name\nAnd I'll take you home\n\n[Bridge: synth arpeggios, rising tension]\n\n[Verse: fade out, ambient]\n\n[Outro: Fading choral voices, soft rain sounds, distant ocean waves]",
-  "refined_style": "",
-  "refined_lyrics": ""
+  "style_output": "delicate acoustic guitar provides soft melody, warm pad synths create ambient atmosphere, subtle strings add depth and richness, gentle piano enhances intimacy, medium harmonic rhythm drives chord progression, complex jazz-influenced harmonies with altered dominants, sharp 9, flat 13, bright tones bring a lift to the arrangement, dynamic contrast adds emotional resonance, well mastered for studio quality sound, clean mix emphasizes delicate textures, creating an affirmative sound that invites reflection, add flutes for warmth, include clarinets for depth, include lower register cellos, emphasize bass tones, dynamic crescendos for emotional lift",
+  "lyrics_output": "[Intro] (establishes theme, sets mood)\n\n[Opening Field]\n(intervallic harmonic block, no tonal center)\n(chromatic vertical cluster, avoid triadic harmony)\n(non-functional harmony, no root motion)\n\n[Primary Material]\n(fragmented thematic cell, harmonic displacement)\n(asymmetric phrase length, tonal center displaced)\n(fragmented thematic cell, chromatic instability)\n\n[Transition]\n(abrupt harmonic interruption)\n(abrupt harmonic interruption)\n\n[Thematic Field]\n(intervallic harmonic block, avoid triadic harmony)\n(non-parallel harmonic shift, no functional root motion)\n(chromatic vertical cluster, unstable harmonic field)\n\n[Instrumental Break]\n(lead guitar solo, angular phrasing, harmony remains unstable)\n(lead guitar solo, sparse gestures, vertical harmony emphasis)\n\n[Final Field]\n(harmonic field transforms, still no tonal center)\n(chromatic suspension, no cadence)\n\n[Outro] (resolves thematic material, concludes piece)\n(harmonic suspension, unresolved ending)"
 }
